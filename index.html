@@ -3,218 +3,254 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Acue Store</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Nexora Store - Get Ready for a New Look!</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&family=Montserrat:wght@700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-bg: linear-gradient(135deg, #8A2BE2 0%, #4B0082 100%);
+            --accent-color: #00FFFF;
+            --text-color: white;
+            --container-bg: rgba(255, 255, 255, 0.08);
+            --border-light: rgba(255, 255, 255, 0.15);
+            --box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
+            --button-gradient: linear-gradient(135deg, #00FFFF, #1a9c9c);
+            --button-hover-gradient: linear-gradient(135deg, #1a9c9c, #00FFFF);
+        }
+
+        /* Base Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: var(--primary-bg);
+            color: var(--text-color);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 20px;
+            overflow-x: hidden;
+            position: relative;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Background Particle/Effect overlay */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at top left, rgba(0, 255, 255, 0.1) 0%, transparent 50%),
+                        radial-gradient(circle at bottom right, rgba(138, 43, 226, 0.1) 0%, transparent 50%);
+            z-index: -1;
+            animation: bgPulse 10s infinite alternate;
+        }
+
+        @keyframes bgPulse {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(1.05); opacity: 0.9; }
+        }
+
+        /* Main Container */
+        .maintenance-container {
+            width: 100%;
+            max-width: 700px;
+            background: var(--container-bg);
+            backdrop-filter: blur(25px);
+            border-radius: 25px;
+            padding: 40px;
+            box-shadow: var(--box-shadow);
+            animation: fadeIn 0.5s ease forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .error-icon {
+            font-size: 80px;
+            margin-bottom: 30px;
+            color: #ff6b6b;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        h1 {
+            font-size: 36px;
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+
+        .error-code {
+            font-size: 18px;
+            color: #ffd93d;
+            margin-bottom: 30px;
+            font-weight: 600;
+        }
+
+        .message {
+            font-size: 18px;
+            line-height: 1.6;
+            margin-bottom: 40px;
+            opacity: 0.9;
+        }
+
+        .update-info {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-left: 4px solid #ffd93d;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .back-btn {
+            background: var(--button-gradient);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 20px;
+        }
+
+        .back-btn:hover {
+            background: var(--button-hover-gradient);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .version-info {
+            font-size: 14px;
+            margin-top: 20px;
+            opacity: 0.8;
+        }
+
+        .social-links {
+            margin-top: 20px;
+        }
+
+        .social-links a {
+            color: white;
+            font-size: 24px;
+            margin: 0 10px;
+            transition: color 0.3s;
+        }
+
+        .social-links a:hover {
+            color: #ffd93d;
+        }
+
+        @media (max-width: 480px) {
+            .maintenance-container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 28px;
+            }
+
+            .error-icon {
+                font-size: 60px;
+            }
+
+            .message {
+                font-size: 16px;
+            }
+        }
+    </style>
 </head>
 <body>
-    <!-- LG Wing Dual Screen Support -->
-    <div id="lgWingContainer" class="lg-wing-container">
-        <!-- Main Display Content -->
-        <div id="mainDisplay" class="main-display">
-            <div class="content-wrapper">
-    <!-- Header -->
-    <header class="header">
-        <div class="container">
-            <div class="header-content">
-                <div class="logo">
-                    <i class="fas fa-mobile-alt"></i>
-                    <span>Acue Store</span>
-                </div>
-
-                <div class="search-container">
-                    <input type="text" id="searchInput" class="search-input" placeholder="Search apps...">
-                </div>
-
-                <nav class="nav">
-                    <a href="#home" class="nav-link active">Home</a>
-                    <a href="#games" class="nav-link">Games</a>
-                    <a href="#apps" class="nav-link">Apps</a>
-                    <a href="#categories" class="nav-link">Categories</a>
-                    <a href="#about" class="nav-link" id="aboutStoreLink">About Store</a>
-                </nav>
-            </div>
+    <div class="maintenance-container">
+        <div class="error-icon">
+            <i class="fas fa-tools"></i>
         </div>
-    </header>
 
-    <!-- Main Content -->
-    <main class="main">
-        <div class="container">
-            <!-- Welcome Section -->
-            <section class="welcome-section">
-                <h2 class="section-title">Welcome to Acue Store</h2>
-                <div class="welcome-content">
-                    <p>Your trusted source for safe and verified Android apps. Discover thousands of applications, all scanned for security and ready to download.</p>
-                </div>
-            </section>
+        <h1>Nexora is getting a New Look!</h1>
 
-            <!-- Categories -->
-            <section class="categories-section">
-                <h2 class="section-title">Categories</h2>
-                <div class="categories-grid">
-                    <div class="category-card" data-category="social">
-                        <i class="fas fa-users"></i>
-                        <span>Social Media</span>
-                    </div>
-                    <div class="category-card" data-category="entertainment">
-                        <i class="fas fa-play-circle"></i>
-                        <span>Entertainment</span>
-                    </div>
-                    <div class="category-card" data-category="games">
-                        <i class="fas fa-gamepad"></i>
-                        <span>Games</span>
-                    </div>
-                    <div class="category-card" data-category="productivity">
-                        <i class="fas fa-briefcase"></i>
-                        <span>Productivity</span>
-                    </div>
-                    <div class="category-card" data-category="photography">
-                        <i class="fas fa-camera"></i>
-                        <span>Photography</span>
-                    </div>
-                    <div class="category-card" data-category="music">
-                        <i class="fas fa-music"></i>
-                        <span>Music</span>
-                    </div>
-                </div>
-            </section>
+        <div class="error-code">Error Code: 503 - Maintenance Mode</div>
 
-            <!-- Tribute Section -->
-            <section class="hero">
-                <div class="hero-content">
-                    <div class="tribute-section">
-                        <div class="tribute-image">
-                            <img src="https://resources.premierleague.com/premierleague/photos/players/250x250/p151589.png" alt="Diogo Jota" class="tribute-photo">
-                        </div>
-                        <h1 class="tribute-name">Diogo Jota</h1>
-                        <p class="tribute-years">1996 - Forever</p>
-                        <p class="tribute-quote">"The first step to achieve something is to believe."</p>
-                        <p class="tribute-description">Remembered for his passion, dedication, and the joy he brought to millions.</p>
-                        <div class="tribute-messages">
-                            <p class="tribute-message">A true legend who inspired countless hearts.</p>
-                            <p class="tribute-message">Your legacy will live on in every goal, every smile, every moment of joy.</p>
-                            <p class="tribute-message">Thank you for the memories that will never fade.</p>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Hot Apps -->
-            <section class="hot-apps-section">
-                <h2 class="section-title">🔥 Hot | Recommended apps </h2>
-                <div class="hot-apps-container">
-                    <div class="hot-apps-scroll" id="hotAppsGrid">
-                        <!-- Hot apps will be dynamically loaded here -->
-                    </div>
-                </div>
-            </section>
-
-            <!-- Featured Apps -->
-            <section class="featured-section">
-                <h2 class="section-title">Featured Apps</h2>
-                <div class="apps-grid" id="appsGrid">
-                    <!-- Apps will be dynamically loaded here -->
-                </div>
-            </section>
-
-            <!-- Loading Indicator -->
-            <div class="loading" id="loading" style="display: none;">
-                <i class="fas fa-spinner fa-spin"></i>
-                <span>Loading apps...</span>
-            </div>
-
-            <!-- No Results Message -->
-            <div class="no-results" id="noResults" style="display: none;">
-                <i class="fas fa-search"></i>
-                <h3>No apps found</h3>
-                <p>Try adjusting your search terms or browse different categories.</p>
-            </div>
+        <div class="message">
+            <strong>Nexora Store is currently down for updates</strong><br>
+            We're working hard to improve your experience and will be back online soon.
         </div>
-    </main>
 
-    <!-- Footer -->
-    <footer class="footer">
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-section">
-                    <h3>Acue Store</h3>
-                    <p>Your trusted source for Android apps</p>
-                </div>
-                <div class="footer-section">
-                    <h4>Quick Links</h4>
-                    <ul>
-                        <li><a href="#home">Home</a></li>
-                        <li><a href="#apps">Apps</a></li>
-                        <li><a href="#games">Games</a></li>
-                        <li><a href="#categories">Categories</a></li>
-                    </ul>
-                </div>
-                <div class="footer-section">
-                    <h4>Support</h4>
-                    <ul>
-                        <li><a href="#help">Help Center</a></li>
-                        <li><a href="#contact">Contact Us</a></li>
-                        <li><a href="#privacy">Privacy Policy</a></li>
-                        <li><a href="#terms">Terms of Service</a></li>
-                    </ul>
-                </div>
-            </div>
-            <div class="footer-bottom">
-                <p>&copy; 2025 Acue Store. All rights reserved.</p>
-            </div>
+        <div class="update-info">
+            <div class="loading-spinner"></div>
+            <p><strong>What's happening?</strong></p>
+            <p>Our team is performing essential updates to enhance security, performance, and add new features to the Acue Store platform.</p>
         </div>
-    </footer>
 
-    <!-- Badge Modal -->
-    <div id="badgeModal" class="badge-modal">
-        <div class="badge-modal-content">
-            <button class="badge-modal-close" id="badgeModalClose" type="button" onclick="window.acueStore && window.acueStore.hideBadgeModal()">
-                ✕
-            </button>
-            <div class="badge-modal-header">
-                <span class="badge-modal-icon" id="badgeModalIcon"></span>
-                <h3 class="badge-modal-title" id="badgeModalTitle"></h3>
-            </div>
-            <div class="badge-modal-body" id="badgeModalBody"></div>
+        <p style="font-size: 16px; opacity: 0.8;">
+            <i class="fas fa-clock"></i> Estimated downtime: 48 hour(s)<br>
+            <i class="fas fa-calendar"></i> App Store will be available on Saturday 20 September 2025 at exactly 13:30 (BSU)
+        </p>
+
+        <a href="#" onclick="location.reload()" class="back-btn">
+            <i class="fas fa-sync-alt"></i> Refresh Page
+        </a>
+
+        <div class="version-info">
+            <p>APK Security Patch: September 20, 2025</p>
+            <p>Store UI Version: 4.0</p>
+        </div>
+
+        <div class="social-links">
+            <a href="https://twitter.com/Acuegb" target="_blank" aria-label="Follow Acuegb on Twitter">
+                <i class="fab fa-twitter"></i>
+            </a>
+            <a href="https://www.tiktok.com/@Acuegb" target="_blank" aria-label="Follow Acuegb on TikTok">
+                <i class="fab fa-tiktok"></i>
+            </a>
         </div>
     </div>
 
-        </div>
-    </div>
+    <script>
+        // Auto-refresh every 5 minutes
+        setTimeout(function() {
+            location.reload();
+        }, 300000);
 
-    <!-- LG Wing Secondary Display (Virtual Touchpad) -->
-    <div id="secondaryDisplay" class="secondary-display">
-        <div class="touchpad-container">
-            <div class="touchpad" id="virtualTouchpad">
-                <div class="touchpad-cursor" id="touchpadCursor"></div>
-                <div class="touchpad-overlay">
-                    <div class="touchpad-instructions">
-                        <i class="fas fa-hand-pointer"></i>
-                        <span>Virtual Touchpad</span>
-                        <small>Move to control cursor</small>
-                    </div>
-                </div>
-            </div>
-            <div class="touchpad-buttons">
-                <button class="touchpad-btn left-click" id="leftClick">
-                    <i class="fas fa-mouse-pointer"></i>
-                    Left
-                </button>
-                <button class="touchpad-btn right-click" id="rightClick">
-                    <i class="fas fa-mouse"></i>
-                    Right
-                </button>
-                <button class="touchpad-btn scroll-mode" id="scrollMode">
-                    <i class="fas fa-arrows-alt-v"></i>
-                    Scroll
-                </button>
-            </div>
-        </div>
-    </div>
-    </div>
-
-    <script src="apps-config.js"></script>
-    <script src="script.js"></script>
+        // Add some dynamic content
+        setInterval(function() {
+            const spinner = document.querySelector('.loading-spinner');
+            if (spinner) {
+                spinner.style.borderTopColor = spinner.style.borderTopColor === 'rgb(255, 217, 61)' ? 'white' : '#ffd93d';
+            }
+        }, 2000);
+    </script>
 </body>
 </html>
