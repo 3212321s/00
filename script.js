@@ -622,15 +622,15 @@ class AcueStore {
                             </div>
                             <div class="info-item">
                                 <span class="info-label">Security Patch:</span>
-                                <span class="info-value">July 12, 2025</span>
+                                <span class="info-value">September 19, 2025</span>
                             </div>
                             <div class="info-item">
-                                <span class="info-label">ASPFU Version:</span>
-                                <span class="info-value">Beta-S6000ASPFUV918</span>
+                                <span class="info-label">NSPFU Version:</span>
+                                <span class="info-value">Beta-S6000NSPFUV918</span>
                             </div>
                             <div class="info-item">
                                 <span class="info-label">Build:</span>
-                                <span class="info-value">S6000Y25MJYD13SU04</span>
+                                <span class="info-value">S6000Y25MSYD19SU04</span>
                             </div>
                         </div>
                         <p>Nexora Store provides safe and verified APK downloads from APKPure. All apps are scanned for security before being made available.</p>
