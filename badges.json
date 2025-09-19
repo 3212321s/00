@@ -1,1 +1,122 @@
- 
+[
+  {
+    "id": "md4p9zhj4o0aihhe7vg",
+    "app_id": "youtube",
+    "badge_type": "data-sharing",
+    "created_at": "2025-07-15T15:41:41.479Z"
+  },
+  {
+    "id": "md4p9zhjgvplmurf5d",
+    "app_id": "whatsapp",
+    "badge_type": "data-sharing",
+    "created_at": "2025-07-15T15:41:41.479Z"
+  },
+  {
+    "id": "md4p9zhjmug4lb4edj",
+    "app_id": "instagram",
+    "badge_type": "data-sharing",
+    "created_at": "2025-07-15T15:41:41.479Z"
+  },
+  {
+    "id": "md4p9zhj0ebh9loq5sl7",
+    "app_id": "facebook",
+    "badge_type": "data-sharing",
+    "created_at": "2025-07-15T15:41:41.479Z"
+  },
+  {
+    "id": "md4p9zhjxvoy98zf8n",
+    "app_id": "gmail",
+    "badge_type": "data-sharing",
+    "created_at": "2025-07-15T15:41:41.479Z"
+  },
+  {
+    "id": "md4p9zhjp7cy5wtsump",
+    "app_id": "AcueStar",
+    "badge_type": "unstable",
+    "created_at": "2025-07-15T15:41:41.479Z"
+  },
+  {
+    "id": "md4p9zhjxwvqjc43okk",
+    "app_id": "chrome-browser",
+    "badge_type": "data-sharing",
+    "created_at": "2025-07-15T15:41:41.479Z"
+  },
+  {
+    "id": "md4p9zhjn29i77jwkdl",
+    "app_id": "youtube-music",
+    "badge_type": "data-sharing",
+    "created_at": "2025-07-15T15:41:41.479Z"
+  },
+  {
+    "id": "md4p9zhjw5do439x61m",
+    "app_id": "valorant-mobile",
+    "badge_type": "unstable",
+    "created_at": "2025-07-15T15:41:41.479Z"
+  },
+  {
+    "id": "md4p9zhj1zdrei1zbwk",
+    "app_id": "facebook-messenger",
+    "badge_type": "data-sharing",
+    "created_at": "2025-07-15T15:41:41.479Z"
+  },
+  {
+    "id": "md4p9zhji0et31j68w",
+    "app_id": "google-meet",
+    "badge_type": "data-sharing",
+    "created_at": "2025-07-15T15:41:41.479Z"
+  },
+  {
+    "id": "md4p9zhj7g6mrb3ce3",
+    "app_id": "google-calendar",
+    "badge_type": "data-sharing",
+    "created_at": "2025-07-15T15:41:41.479Z"
+  },
+  {
+    "id": "md4p9zhj824el9mlcbt",
+    "app_id": "google-assistant",
+    "badge_type": "data-sharing",
+    "created_at": "2025-07-15T15:41:41.479Z"
+  },
+  {
+    "id": "md4p9zhj9u8wo4cejjw",
+    "app_id": "es-file-explorer",
+    "badge_type": "data-sharing",
+    "created_at": "2025-07-15T15:41:41.479Z"
+  },
+  {
+    "id": "md4pcpq107fpyvh3v7kr",
+    "app_id": "tiktok",
+    "badge_type": "data-sharing",
+    "created_at": "2025-07-15T15:43:48.793Z"
+  },
+  {
+    "id": "md4pcptqa47rdxgw56d",
+    "app_id": "tiktok",
+    "badge_type": "editors-choice",
+    "created_at": "2025-07-15T15:43:48.926Z"
+  },
+  {
+    "id": "md4pcpwuy2xnzjh71f",
+    "app_id": "tiktok",
+    "badge_type": "featured",
+    "created_at": "2025-07-15T15:43:49.038Z"
+  },
+  {
+    "id": "md4pcq06a75gvgwx1ed",
+    "app_id": "tiktok",
+    "badge_type": "trending",
+    "created_at": "2025-07-15T15:43:49.158Z"
+  },
+  {
+    "id": "md4pcq3lf2txu40o9jm",
+    "app_id": "tiktok",
+    "badge_type": "new",
+    "created_at": "2025-07-15T15:43:49.281Z"
+  },
+  {
+    "id": "md4pcq6puiw7ojcuuk",
+    "app_id": "tiktok",
+    "badge_type": "popular",
+    "created_at": "2025-07-15T15:43:49.393Z"
+  }
+] 
