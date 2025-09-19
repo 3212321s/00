@@ -3,128 +3,101 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexora Store - Get Ready for a New Look!</title>
+    <title>Nexora Store - Updating Servers</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&family=Montserrat:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&family=Poppins:wght@400&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary-bg: linear-gradient(135deg, #8A2BE2 0%, #4B0082 100%);
-            --accent-color: #00FFFF;
-            --text-color: white;
-            --container-bg: rgba(255, 255, 255, 0.08);
-            --border-light: rgba(255, 255, 255, 0.15);
-            --box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
-            --button-gradient: linear-gradient(135deg, #00FFFF, #1a9c9c);
-            --button-hover-gradient: linear-gradient(135deg, #1a9c9c, #00FFFF);
+            --dark-bg: #0A0A10;
+            --purple-neon: #7F00FF;
+            --purple-neon-glow: #7F00FF;
+            --text-color: #E8E8FF;
         }
 
-        /* Base Styles */
+        /* Base & Body */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
 
+        html, body {
+            height: 100%;
+            overflow-x: hidden;
+        }
+
         body {
             font-family: 'Poppins', sans-serif;
-            background: var(--primary-bg);
+            background-color: var(--dark-bg);
             color: var(--text-color);
-            min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
             text-align: center;
             padding: 20px;
-            overflow-x: hidden;
             position: relative;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
         }
 
-        /* Background Particle/Effect overlay */
+        /* Neon Grid Effect */
         body::before {
             content: '';
             position: absolute;
             top: 0;
             left: 0;
-            right: 0;
-            bottom: 0;
-            background: radial-gradient(circle at top left, rgba(0, 255, 255, 0.1) 0%, transparent 50%),
-                        radial-gradient(circle at bottom right, rgba(138, 43, 226, 0.1) 0%, transparent 50%);
-            z-index: -1;
-            animation: bgPulse 10s infinite alternate;
-        }
-
-        @keyframes bgPulse {
-            0% { transform: scale(1); opacity: 1; }
-            100% { transform: scale(1.05); opacity: 0.9; }
-        }
-
-        /* Main Container */
-        .maintenance-container {
             width: 100%;
-            max-width: 700px;
-            background: var(--container-bg);
-            backdrop-filter: blur(25px);
-            border-radius: 25px;
-            padding: 40px;
-            box-shadow: var(--box-shadow);
-            animation: fadeIn 0.5s ease forwards;
+            height: 100%;
+            background-image:
+                linear-gradient(to right, rgba(127, 0, 255, 0.1) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(127, 0, 255, 0.1) 1px, transparent 1px);
+            background-size: 20px 20px;
+            opacity: 0.2;
+            z-index: -1;
+        }
+        
+        /* Main Container */
+        .container {
+            width: 100%;
+            max-width: 400px;
+            background-color: rgba(12, 12, 18, 0.8);
+            border: 2px solid var(--purple-neon);
+            border-radius: 15px;
+            padding: 30px 20px;
+            box-shadow: 0 0 15px 5px rgba(127, 0, 255, 0.5),
+                        0 0 30px 10px rgba(127, 0, 255, 0.3);
+            animation: fadeIn 1s ease-in-out;
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-20px); }
-            to { opacity: 1; transform: translateY(0); }
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
         }
 
-        .error-icon {
-            font-size: 80px;
-            margin-bottom: 30px;
-            color: #ff6b6b;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-        }
-
+        /* Header & Text */
         h1 {
-            font-size: 36px;
+            font-family: 'Montserrat', sans-serif;
+            font-size: 2.2rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 8px var(--purple-neon);
+            margin-bottom: 10px;
+            line-height: 1.2;
+        }
+
+        p {
+            font-size: 0.9rem;
+            opacity: 0.8;
             margin-bottom: 20px;
-            font-weight: 700;
         }
 
-        .error-code {
-            font-size: 18px;
-            color: #ffd93d;
-            margin-bottom: 30px;
-            font-weight: 600;
-        }
-
-        .message {
-            font-size: 18px;
-            line-height: 1.6;
-            margin-bottom: 40px;
-            opacity: 0.9;
-        }
-
-        .update-info {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 15px;
-            padding: 20px;
-            margin-bottom: 30px;
-            border-left: 4px solid #ffd93d;
-        }
-
-        .loading-spinner {
-            width: 40px;
-            height: 40px;
-            border: 4px solid rgba(255, 255, 255, 0.3);
-            border-top: 4px solid white;
+        /* Loader */
+        .loader {
+            width: 50px;
+            height: 50px;
+            border: 3px solid transparent;
+            border-top: 3px solid var(--purple-neon);
             border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
+            animation: spin 1s linear infinite, glow 2s ease-in-out infinite alternate;
+            margin: 20px auto;
         }
 
         @keyframes spin {
@@ -132,125 +105,121 @@
             100% { transform: rotate(360deg); }
         }
 
-        .back-btn {
-            background: var(--button-gradient);
-            color: white;
-            border: none;
-            padding: 15px 30px;
-            border-radius: 25px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
+        @keyframes glow {
+            0% { box-shadow: 0 0 5px var(--purple-neon); }
+            100% { box-shadow: 0 0 20px var(--purple-neon); }
+        }
+
+        /* Update List */
+        .update-list {
+            list-style: none;
+            text-align: left;
+            padding: 15px;
+            border-left: 2px solid var(--purple-neon);
+            margin-bottom: 25px;
+            opacity: 0;
+            animation: listFadeIn 1s ease-in-out 1s forwards; /* Added a delay */
+        }
+
+        @keyframes listFadeIn {
+            to { opacity: 1; }
+        }
+
+        .update-list li {
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+        }
+
+        .update-list li i {
+            color: var(--purple-neon);
+            margin-right: 10px;
+        }
+
+        .update-list li strong {
+            color: var(--text-color);
+        }
+
+        /* Button */
+        .refresh-btn {
+            background-color: var(--purple-neon);
+            color: var(--dark-bg);
+            font-weight: bold;
+            text-transform: uppercase;
+            padding: 12px 25px;
+            border-radius: 5px;
             text-decoration: none;
             display: inline-block;
-            margin-top: 20px;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 10px var(--purple-neon);
         }
 
-        .back-btn:hover {
-            background: var(--button-hover-gradient);
+        .refresh-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+            background-color: #9A2AFE;
+            box-shadow: 0 0 20px var(--purple-neon);
         }
 
-        .version-info {
-            font-size: 14px;
-            margin-top: 20px;
-            opacity: 0.8;
-        }
-
+        /* Social Links */
         .social-links {
-            margin-top: 20px;
+            margin-top: 30px;
         }
-
+        
         .social-links a {
-            color: white;
-            font-size: 24px;
+            color: var(--text-color);
+            font-size: 1.5rem;
             margin: 0 10px;
-            transition: color 0.3s;
+            transition: transform 0.3s, color 0.3s;
         }
 
         .social-links a:hover {
-            color: #ffd93d;
+            color: var(--purple-neon);
+            transform: scale(1.2) translateY(-2px);
+            text-shadow: 0 0 5px var(--purple-neon);
         }
 
-        @media (max-width: 480px) {
-            .maintenance-container {
-                padding: 20px;
+        /* Media Queries for larger screens */
+        @media (min-width: 480px) {
+            .container {
+                max-width: 500px;
+                padding: 40px 30px;
             }
 
             h1 {
-                font-size: 28px;
-            }
-
-            .error-icon {
-                font-size: 60px;
-            }
-
-            .message {
-                font-size: 16px;
+                font-size: 2.8rem;
             }
         }
     </style>
 </head>
 <body>
-    <div class="maintenance-container">
-        <div class="error-icon">
-            <i class="fas fa-tools"></i>
-        </div>
+    <div class="container">
+        <h1>Updating Servers</h1>
+        <p>The Nexora Store is currently undergoing essential maintenance.</p>
 
-        <h1>Nexora is getting a New Look!</h1>
-
-        <div class="error-code">Error Code: 503 - Maintenance Mode</div>
-
-        <div class="message">
-            <strong>Nexora Store is currently down for updates</strong><br>
-            We're working hard to improve your experience and will be back online soon.
-        </div>
-
-        <div class="update-info">
-            <div class="loading-spinner"></div>
-            <p><strong>What's happening?</strong></p>
-            <p>Our team is performing essential updates to enhance security, performance, and add new features to the Acue Store platform.</p>
-        </div>
-
-        <p style="font-size: 16px; opacity: 0.8;">
-            <i class="fas fa-clock"></i> Estimated downtime: 48 hour(s)<br>
-            <i class="fas fa-calendar"></i> App Store will be available on Saturday 20 September 2025 at exactly 13:30 (BSU)
+        <div class="loader"></div>
+        
+        <p>
+            We are working hard to enhance security and performance.<br>
+            We appreciate your patience.
         </p>
 
-        <a href="#" onclick="location.reload()" class="back-btn">
-            <i class="fas fa-sync-alt"></i> Refresh Page
+        <ul class="update-list">
+            <li><i class="fas fa-check-circle"></i> <strong>APK Security Patch:</strong> September 20, 2025</li>
+            <li><i class="fas fa-check-circle"></i> <strong>Store UI Version:</strong> 4.0</li>
+            <li><i class="fas fa-check-circle"></i> <strong>Estimated Completion:</strong> Saturday, September 20, 2025 at 13:30 (BST)</li>
+        </ul>
+
+        <a href="#" onclick="location.reload()" class="refresh-btn">
+            <i class="fas fa-sync-alt"></i> CHECK STATUS
         </a>
 
-        <div class="version-info">
-            <p>APK Security Patch: September 20, 2025</p>
-            <p>Store UI Version: 4.0</p>
-        </div>
-
         <div class="social-links">
-            <a href="https://twitter.com/Acuegb" target="_blank" aria-label="Follow Acuegb on Twitter">
+            <a href="https://twitter.com" target="_blank" aria-label="Twitter">
                 <i class="fab fa-twitter"></i>
             </a>
-            <a href="https://www.tiktok.com/@Acuegb" target="_blank" aria-label="Follow Acuegb on TikTok">
+            <a href="https://www.tiktok.com" target="_blank" aria-label="TikTok">
                 <i class="fab fa-tiktok"></i>
             </a>
         </div>
     </div>
-
-    <script>
-        // Auto-refresh every 5 minutes
-        setTimeout(function() {
-            location.reload();
-        }, 300000);
-
-        // Add some dynamic content
-        setInterval(function() {
-            const spinner = document.querySelector('.loading-spinner');
-            if (spinner) {
-                spinner.style.borderTopColor = spinner.style.borderTopColor === 'rgb(255, 217, 61)' ? 'white' : '#ffd93d';
-            }
-        }, 2000);
-    </script>
 </body>
 </html>
