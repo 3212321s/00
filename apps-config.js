@@ -121,16 +121,6 @@ const appsData = [
         downloadUrl: 'https://apkpure.com/twitter/com.twitter.android/downloading'
     },
     {
-        id: 'discord',
-        name: 'Discord',
-        developer: 'Discord Inc.',
-        category: 'social',
-        rating: 4.2,
-        description: 'Chat, hang out, and stay close with your friends and communities.',
-        icon: 'fab fa-discord',
-        downloadUrl: 'https://apkpure.com/discord-talk-video-chat/com.discord/downloading'
-    },
-    {
         id: 'amazon',
         name: 'Amazon Shopping',
         developer: 'Amazon Mobile LLC',
@@ -268,14 +258,14 @@ const appsData = [
         downloadUrl: 'https://apkpure.com/viber-messenger/com.viber.voip/downloading'
     },
     {
-        id: 'skype',
-        name: 'Unknown',
-        developer: 'Microsoft Corporation',
+        id: 'AcueStar',
+        name: 'Acue Star Launcher',
+        developer: 'Acue ISD',
         category: 'social',
         rating: 4.0,
-        description: 'Video calling and messaging for staying connected worldwide.',
-        icon: 'fab fa-skype',
-        downloadUrl: 'https://apkpure.com/skype/_om.skype.raider/downloading',
+        description: 'Want to upgrade your android experience? Acue Star launcher is for you!',
+        icon: 'fab fa-acue',
+        downloadUrl: 'https://apkpure.com/skype/com.skype.raider/downloading',
         badges: ["unstable"]
     },
     {
@@ -768,20 +758,100 @@ const categories = {
     music: { name: 'Music', icon: 'fas fa-music' }
 };
 
-// Export for use in other files
-window.appsData = appsData;
-window.categories = categories;
-
-    // Badge definitions
-window.badgeTypes = {
-    "data-sharing": {
-        icon: "🌐",
-        name: "Data sharing app",
-        reason: "The following app is giving and sharing data with servers (unsecured)."
-    },
-    "unstable": {
-        icon: "⚠️",
-        name: "Unstable App",
-        reason: "App is unstable or may not work at all."
-    }
+// Admin configuration
+const adminConfig = {
+    adminIP: '84.67.186.183',
+    isAdmin: false,
+    adminUser: 'AlzzTech',
+    primaryPin: '7070',
+    securityPin: '6060',
+    securityQuestion: 'What year?',
+    securityAnswer: '2015'
 };
+
+// Export for use in other files
+if (typeof window !== 'undefined') {
+    // Browser environment
+    window.appsData = appsData;
+    window.categories = categories;
+    window.adminConfig = adminConfig;
+    window.badgeTypes = {
+        "data-sharing": {
+            icon: "🌐",
+            name: "Data Sharing",
+            reason: "This app shares data with third-party servers."
+        },
+        "unstable": {
+            icon: "⚠️",
+            name: "Unstable",
+            reason: "App may be unstable or contain bugs."
+        },
+        "editors-choice": {
+            icon: "⭐",
+            name: "Editor's Choice",
+            reason: "Selected by our editorial team for quality and innovation."
+        },
+        "featured": {
+            icon: "🔥",
+            name: "Featured",
+            reason: "Featured app with special promotion."
+        },
+        "trending": {
+            icon: "📈",
+            name: "Trending",
+            reason: "Currently trending and popular among users."
+        },
+        "new": {
+            icon: "🆕",
+            name: "New",
+            reason: "Recently added to the store."
+        },
+        "popular": {
+            icon: "👑",
+            name: "Popular",
+            reason: "Highly rated and widely downloaded."
+        }
+    };
+} else {
+    // Node.js environment
+    global.appsData = appsData;
+    global.categories = categories;
+    global.adminConfig = adminConfig;
+    global.badgeTypes = {
+        "data-sharing": {
+            icon: "🌐",
+            name: "Data Sharing",
+            reason: "This app shares data with third-party servers."
+        },
+        "unstable": {
+            icon: "⚠️",
+            name: "Unstable",
+            reason: "App may be unstable or contain bugs."
+        },
+        "editors-choice": {
+            icon: "⭐",
+            name: "Editor's Choice",
+            reason: "Selected by our editorial team for quality and innovation."
+        },
+        "featured": {
+            icon: "🔥",
+            name: "Featured",
+            reason: "Featured app with special promotion."
+        },
+        "trending": {
+            icon: "📈",
+            name: "Trending",
+            reason: "Currently trending and popular among users."
+        },
+        "new": {
+            icon: "🆕",
+            name: "New",
+            reason: "Recently added to the store."
+        },
+        "popular": {
+            icon: "👑",
+            name: "Popular",
+            reason: "Highly rated and widely downloaded."
+        }
+    };
+}
