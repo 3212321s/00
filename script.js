@@ -1,194 +1,218 @@
-// Main JavaScript functionality for Acue Store
-
 class AcueStore {
     constructor() {
-        this.apps = window.appsData || [];
+        this.apps = [];
         this.categories = window.categories || {};
         this.currentFilter = '';
         this.currentSearchTerm = '';
+        this.currentPage = 'today';
         this.deviceInfo = this.detectDevice();
         this.isOlderDevice = this.detectOlderDevice();
-        
-        // Optimize for older devices
+        this.currentUser = null;
+
         if (this.isOlderDevice) {
             this.optimizeForOlderDevices();
         }
-        
+
+        this.loadUserSession();
+        this.loadAppsFromDatabase();
+        this.setupAuthHandlers();
+        this.setupAdminAuthHandlers();
+        this.checkAdminStatus();
         this.init();
     }
 
     init() {
         this.setupEventListeners();
-        this.renderHotApps();
-        this.renderApps();
-        this.updateActiveNavLink();
-        this.initBadgeModal();
-        this.initLGWingSupport();
+        this.setupNavigation();
+        this.updatePageTitle();
+        this.setTodayDate();
+        this.initModals();
+        // Render apps after they're loaded
+        if (this.apps && this.apps.length > 0) {
+            this.renderHotApps();
+            this.renderPopularApps();
+            this.renderAllApps();
+            this.renderEditorsChoice();
+            this.renderFeaturedApps();
+            this.renderTrendingApps();
+            this.renderNewApps();
+        }
     }
 
     setupEventListeners() {
+        // Bottom navigation
+        const navItems = document.querySelectorAll('.nav-item');
+        navItems.forEach(item => {
+            item.addEventListener('click', () => {
+                const page = item.dataset.page;
+                this.switchToPage(page);
+            });
+        });
+
         // Search functionality
         const searchInput = document.getElementById('searchInput');
         if (searchInput) {
             searchInput.addEventListener('input', (e) => {
                 this.currentSearchTerm = e.target.value.toLowerCase().trim();
-                this.filterAndRenderApps();
+                this.handleSearch();
             });
         }
 
-        // Category filtering
-        const categoryCards = document.querySelectorAll('.category-card');
-        categoryCards.forEach(card => {
-            card.addEventListener('click', () => {
-                const category = card.dataset.category;
+        // Category chips
+        const categoryChips = document.querySelectorAll('.category-chip');
+        categoryChips.forEach(chip => {
+            chip.addEventListener('click', () => {
+                const category = chip.dataset.category;
                 this.filterByCategory(category);
-                this.updateActiveCategoryCard(card);
+                this.updateActiveCategoryChip(chip);
             });
         });
 
-        // Navigation links
-        const navLinks = document.querySelectorAll('.nav-link');
-        navLinks.forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                const target = link.getAttribute('href').substring(1);
-                
-                // Special handling for About Store
-                if (target === 'about') {
-                    this.showBadgeModal('store-info');
-                    return;
-                }
-                
-                this.handleNavigation(target);
-                this.updateActiveNavLink(link);
+        // Profile button
+        const profileBtn = document.getElementById('profileBtn');
+        if (profileBtn) {
+            profileBtn.addEventListener('click', () => {
+                this.showProfileModal();
             });
-        });
-
-        // Smooth scrolling for navigation
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                const target = document.querySelector(this.getAttribute('href'));
-                if (target) {
-                    target.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'start'
-                    });
-                }
-            });
-        });
-    }
-
-    handleNavigation(target) {
-        switch(target) {
-            case 'home':
-                this.currentFilter = '';
-                this.currentSearchTerm = '';
-                document.getElementById('searchInput').value = '';
-                this.clearActiveCategoryCards();
-                break;
-            case 'games':
-                this.filterByCategory('games');
-                break;
-            case 'apps':
-                this.currentFilter = '';
-                this.currentSearchTerm = '';
-                document.getElementById('searchInput').value = '';
-                this.clearActiveCategoryCards();
-                break;
-            case 'categories':
-                // Scroll to categories section
-                const categoriesSection = document.querySelector('.categories-section');
-                if (categoriesSection) {
-                    categoriesSection.scrollIntoView({ behavior: 'smooth' });
-                }
-                return;
-            case 'about':
-                this.showBadgeModal('store-info');
-                return;
         }
-        this.filterAndRenderApps();
+
+        // Authentication form handlers
+        this.setupAuthHandlers();
     }
 
-    filterByCategory(category) {
-        this.currentFilter = category;
-        this.currentSearchTerm = '';
-        document.getElementById('searchInput').value = '';
-        this.filterAndRenderApps();
+    setupNavigation() {
+        // Set initial active state
+        this.switchToPage('today');
     }
 
-    filterAndRenderApps() {
-        this.showLoading();
-        
-        // Reduce loading delay for older devices
-        const delay = this.isOlderDevice ? 100 : 300;
-        
-        setTimeout(() => {
-            let filteredApps = [...this.apps];
+    switchToPage(pageName) {
+        // Hide all pages
+        const pages = document.querySelectorAll('.page-section');
+        pages.forEach(page => page.classList.remove('active'));
 
-            // Apply category filter
-            if (this.currentFilter) {
-                filteredApps = filteredApps.filter(app => 
-                    app.category === this.currentFilter
-                );
-            }
+        // Show selected page
+        const targetPage = document.getElementById(pageName + 'Page');
+        if (targetPage) {
+            targetPage.classList.add('active');
+        }
 
-            // Apply search filter
-            if (this.currentSearchTerm) {
-                filteredApps = filteredApps.filter(app =>
-                    app.name.toLowerCase().includes(this.currentSearchTerm) ||
-                    app.developer.toLowerCase().includes(this.currentSearchTerm) ||
-                    app.description.toLowerCase().includes(this.currentSearchTerm) ||
-                    app.category.toLowerCase().includes(this.currentSearchTerm)
-                );
-            }
+        // Update navigation
+        const navItems = document.querySelectorAll('.nav-item');
+        navItems.forEach(item => item.classList.remove('active'));
 
-            this.hideLoading();
-            
-            // Use optimized rendering for older devices
-            if (this.isOlderDevice) {
-                this.renderAppsOptimized(filteredApps);
-            } else {
-                this.renderApps(filteredApps);
-            }
-        }, delay);
+        const activeNavItem = document.querySelector(`[data-page="${pageName}"]`);
+        if (activeNavItem) {
+            activeNavItem.classList.add('active');
+        }
+
+        this.currentPage = pageName;
+        this.updatePageTitle();
     }
 
-    renderApps(appsToRender = this.apps) {
-        const appsGrid = document.getElementById('appsGrid');
-        const noResults = document.getElementById('noResults');
+    updatePageTitle() {
+        const pageTitle = document.getElementById('pageTitle');
+        if (!pageTitle) return;
 
-        if (!appsGrid) return;
+        const titles = {
+            today: 'Today',
+            apps: 'Apps',
+            search: 'Search'
+        };
 
-        if (appsToRender.length === 0) {
-            appsGrid.innerHTML = '';
-            if (noResults) noResults.style.display = 'block';
+        pageTitle.textContent = titles[this.currentPage] || 'Nexora Store';
+    }
+
+    setTodayDate() {
+        const todayDate = document.getElementById('todayDate');
+        if (todayDate) {
+            const today = new Date();
+            const options = { 
+                weekday: 'long', 
+                month: 'long', 
+                day: 'numeric' 
+            };
+            todayDate.textContent = today.toLocaleDateString('en-US', options).toUpperCase();
+        }
+    }
+
+    renderHotApps() {
+        const hotApps = this.apps.filter(app => app.is_hot === true).slice(0, 8);
+        const container = document.getElementById('hotAppsContainer');
+
+        console.log('Rendering hot apps:', hotApps.length, 'total apps:', this.apps.length);
+
+        if (!container) {
+            console.error('Hot apps container not found');
             return;
         }
 
-        if (noResults) noResults.style.display = 'none';
+        if (hotApps.length === 0) {
+            container.innerHTML = '<div class="no-apps">No hot apps available</div>';
+            return;
+        }
 
-        // Clear existing content first
-        appsGrid.innerHTML = '';
-        
-        // Force display grid to ensure proper layout
-        appsGrid.style.display = 'grid';
-        
-        // Render all apps
-        appsGrid.innerHTML = appsToRender.map(app => this.createAppCard(app)).join('');
+        container.innerHTML = hotApps.map(app => this.createHotAppCard(app)).join('');
 
-        // Add click event listeners to download buttons
-        const downloadButtons = appsGrid.querySelectorAll('.download-btn');
-        downloadButtons.forEach((button, index) => {
+        // Add event listeners
+        const getButtons = container.querySelectorAll('.get-btn');
+        getButtons.forEach((button, index) => {
             button.addEventListener('click', (e) => {
                 e.preventDefault();
-                const app = appsToRender[index];
-                this.handleDownload(app);
+                this.handleDownload(hotApps[index]);
+            });
+        });
+    }
+
+    createHotAppCard(app) {
+        const categoryInfo = this.categories[app.category] || { name: app.category };
+
+        return `
+            <div class="hot-app-card">
+                <div class="hot-app-header">
+                    <div class="hot-app-icon">
+                        <i class="${app.icon}"></i>
+                    </div>
+                    <div class="hot-app-info">
+                        <h4>${app.name}</h4>
+                        <p>${app.developer}</p>
+                    </div>
+                </div>
+                <div class="hot-app-footer">
+                    <span class="hot-app-category">${categoryInfo.name}</span>
+                    <button class="get-btn">GET</button>
+                </div>
+            </div>
+        `;
+    }
+
+    renderAllApps() {
+        let appsToRender = [...this.apps];
+
+        if (this.currentFilter) {
+            appsToRender = appsToRender.filter(app => app.category === this.currentFilter);
+        }
+
+        console.log('Rendering all apps:', appsToRender.length, 'filtered by:', this.currentFilter);
+
+        const container = document.getElementById('appsGrid');
+        if (!container) {
+            console.error('Apps grid container not found');
+            return;
+        }
+
+        container.innerHTML = appsToRender.map(app => this.createAppRow(app)).join('');
+
+        // Add event listeners
+        const getButtons = container.querySelectorAll('.get-btn');
+        getButtons.forEach((button, index) => {
+            button.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.handleDownload(appsToRender[index]);
             });
         });
 
-        // Add click event listeners to badges
-        const badges = appsGrid.querySelectorAll('.app-badge');
+        // Add badge event listeners
+        const badges = container.querySelectorAll('.app-badge');
         badges.forEach(badge => {
             badge.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -199,41 +223,130 @@ class AcueStore {
         });
     }
 
-    createAppCard(app, isHot = false) {
+    createAppRow(app) {
         const categoryInfo = this.categories[app.category] || { name: app.category };
         const stars = this.generateStars(app.rating);
-        const hotBadge = isHot ? '<div class="hot-badge">🔥 HOT</div>' : '';
         const badges = this.createAppBadges(app.badges || []);
 
         return `
-            <div class="app-card ${isHot ? 'hot-app' : ''}" data-app-id="${app.id}">
-                ${hotBadge}
-                <div class="app-header">
-                    <div class="app-icon">
-                        <i class="${app.icon}"></i>
+            <div class="app-row">
+                <div class="app-icon-small">
+                    <i class="${app.icon}"></i>
+                </div>
+                <div class="app-details">
+                    <div class="app-name">${app.name}</div>
+                    <div class="app-developer">${app.developer}</div>
+                    <div class="app-rating">
+                        <span class="rating-stars">${stars}</span>
+                        <span class="rating-value">${app.rating}</span>
                     </div>
-                    <div class="app-info">
-                        <div class="app-name">${app.name}</div>
-                        <div class="app-developer">${app.developer}</div>
-                        <div class="app-rating">
-                            <span class="rating-stars">${stars}</span>
-                            <span class="rating-value">${app.rating}</span>
-                        </div>
-                        ${badges}
-                    </div>
+                    ${badges}
                 </div>
-                <div class="app-description">
-                    ${app.description}
-                </div>
-                <div class="app-footer">
-                    <span class="app-category">${categoryInfo.name}</span>
-                    <a href="${app.downloadUrl}" class="download-btn" target="_blank" rel="noopener noreferrer">
-                        <i class="fas fa-download"></i>
-                        Download
-                    </a>
-                </div>
+                <button class="get-btn">GET</button>
             </div>
         `;
+    }
+
+    renderPopularApps() {
+        const popularApps = this.apps
+            .sort((a, b) => b.rating - a.rating)
+            .slice(0, 6);
+
+        const container = document.getElementById('popularApps');
+        if (!container) return;
+
+        container.innerHTML = popularApps.map(app => this.createPopularAppCard(app)).join('');
+
+        // Add event listeners
+        const getButtons = container.querySelectorAll('.get-btn');
+        getButtons.forEach((button, index) => {
+            button.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.handleDownload(popularApps[index]);
+            });
+        });
+    }
+
+    createPopularAppCard(app) {
+        const categoryInfo = this.categories[app.category] || { name: app.category };
+
+        return `
+            <div class="popular-app-card">
+                <div class="popular-app-icon">
+                    <i class="${app.icon}"></i>
+                </div>
+                <div class="popular-app-name">${app.name}</div>
+                <div class="popular-app-category">${categoryInfo.name}</div>
+                <button class="get-btn" style="margin-top: 8px;">GET</button>
+            </div>
+        `;
+    }
+
+    filterByCategory(category) {
+        this.currentFilter = category;
+        this.renderAllApps();
+    }
+
+    updateActiveCategoryChip(activeChip) {
+        const chips = document.querySelectorAll('.category-chip');
+        chips.forEach(chip => chip.classList.remove('active'));
+        activeChip.classList.add('active');
+    }
+
+    handleSearch() {
+        if (!this.currentSearchTerm) {
+            // Show popular apps
+            document.getElementById('popularApps').style.display = 'grid';
+            document.getElementById('searchResults').style.display = 'none';
+            return;
+        }
+
+        //Issue 3 fix: reorder the search and filter out AcueGX
+        let filteredApps = this.apps.filter(app =>
+            app.name.toLowerCase().includes(this.currentSearchTerm) ||
+            app.developer.toLowerCase().includes(this.currentSearchTerm) ||
+            app.description.toLowerCase().includes(this.currentSearchTerm) ||
+            app.category.toLowerCase().includes(this.currentSearchTerm)
+        );
+
+        // Remove AcueGX
+        filteredApps = filteredApps.filter(app => app.name !== 'AcueGX');
+
+        // Sort by relevance
+        filteredApps.sort((a, b) => {
+            const aNameIndex = a.name.toLowerCase().indexOf(this.currentSearchTerm);
+            const bNameIndex = b.name.toLowerCase().indexOf(this.currentSearchTerm);
+
+            if (aNameIndex === 0 && bNameIndex !== 0) return -1;
+            if (bNameIndex === 0 && aNameIndex !== 0) return 1;
+
+            return 0;
+        });
+
+        // Hide popular apps, show search results
+        document.getElementById('popularApps').style.display = 'none';
+        const searchResults = document.getElementById('searchResults');
+        searchResults.style.display = 'block';
+
+        if (filteredApps.length === 0) {
+            searchResults.innerHTML = `
+                <div class="no-results">
+                    <h3>No Results</h3>
+                    <p>Try a different search term</p>
+                </div>
+            `;
+        } else {
+            searchResults.innerHTML = filteredApps.map(app => this.createAppRow(app)).join('');
+
+            // Add event listeners to search results
+            const getButtons = searchResults.querySelectorAll('.get-btn');
+            getButtons.forEach((button, index) => {
+                button.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this.handleDownload(filteredApps[index]);
+                });
+            });
+        }
     }
 
     generateStars(rating) {
@@ -242,18 +355,15 @@ class AcueStore {
         const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
 
         let stars = '';
-        
-        // Full stars
+
         for (let i = 0; i < fullStars; i++) {
             stars += '<i class="fas fa-star"></i>';
         }
-        
-        // Half star
+
         if (hasHalfStar) {
             stars += '<i class="fas fa-star-half-alt"></i>';
         }
-        
-        // Empty stars
+
         for (let i = 0; i < emptyStars; i++) {
             stars += '<i class="far fa-star"></i>';
         }
@@ -263,243 +373,197 @@ class AcueStore {
 
     createAppBadges(badges) {
         if (!badges || badges.length === 0) return '';
-        
+
         const badgeTypes = window.badgeTypes || {};
-        
+
         const badgeHtml = badges.map(badgeType => {
             const badge = badgeTypes[badgeType];
             if (!badge) return '';
-            
+
             return `<span class="app-badge badge-${badgeType}" data-badge-type="${badgeType}">${badge.icon}</span>`;
         }).join('');
-        
+
         return badgeHtml ? `<div class="app-badges">${badgeHtml}</div>` : '';
     }
 
     handleDownload(app) {
-        // Check if browser is available
         if (!this.isBrowserAvailable()) {
             this.showBrowserError();
             return;
         }
-        
-        // Add download tracking or analytics here if needed
-        console.log(`Downloading ${app.name} from ${app.downloadUrl}`);
-        
-        // Show a brief loading state on the button
-        const button = document.querySelector(`[data-app-id="${app.id}"] .download-btn`);
-        if (button) {
-            const originalText = button.innerHTML;
-            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Opening...';
-            button.style.pointerEvents = 'none';
-            
-            setTimeout(() => {
-                button.innerHTML = originalText;
-                button.style.pointerEvents = 'auto';
-            }, 2000);
-        }
 
-        // Open APKPure download link in new tab
+        console.log(`Downloading ${app.name} from ${app.downloadUrl}`);
         window.open(app.downloadUrl, '_blank', 'noopener,noreferrer');
     }
 
     isBrowserAvailable() {
-        // Check if we're in a proper browser environment
         if (typeof window === 'undefined' || typeof window.open !== 'function') {
             return false;
         }
-        
-        // Check user agent for known browsers
+
         const userAgent = navigator.userAgent.toLowerCase();
-        const browsers = ['chrome', 'firefox', 'safari', 'edge', 'opera', 'samsung', 'ucbrowser'];
-        
+        const browsers = ['chrome', 'firefox', 'safari', 'opers', 'opera air', 'samsung', 'ucbrowser'];
+
         return browsers.some(browser => userAgent.includes(browser)) || 
                userAgent.includes('mozilla') || 
                userAgent.includes('webkit');
     }
 
     showBrowserError() {
-        const errorModal = this.createBrowserErrorModal();
-        document.body.appendChild(errorModal);
-        
-        // Show modal
-        setTimeout(() => {
-            errorModal.classList.add('show');
-        }, 10);
-        
-        // Auto-hide after 5 seconds
-        setTimeout(() => {
-            this.hideBrowserErrorModal(errorModal);
-        }, 5000);
+        alert('Error 671: Browser Not Supported\n\nPlease have a Web Browser ready to download the app.');
     }
 
-    createBrowserErrorModal() {
-        const modal = document.createElement('div');
-        modal.className = 'browser-error-modal';
-        modal.innerHTML = `
-            <div class="browser-error-content">
-                <div class="browser-error-header">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <h3>Error 671: Browser Not Supported</h3>
-                </div>
-                <div class="browser-error-body">
-                    <p>Please have a Web Browser ready to download the app.</p>
-                    <p>Make sure you have Chrome, Firefox, Safari, or another browser installed on your device.</p>
-                </div>
-                <button class="browser-error-close" onclick="this.closest('.browser-error-modal').remove()">
-                    <i class="fas fa-times"></i> Close
-                </button>
-            </div>
-        `;
-        
-        return modal;
+    initModals() {
+        // Profile modal
+        const profileModal = document.getElementById('profileModal');
+        const closeProfileModal = document.getElementById('closeProfileModal');
+        const aboutStoreBtn = document.getElementById('aboutStoreBtn');
+        const rememberingBtn = document.getElementById('rememberingBtn');
+        const settingsBtn = document.getElementById('settingsBtn');
+        const adminPanelBtn = document.getElementById('adminPanelBtn');
+
+        if (closeProfileModal) {
+            closeProfileModal.addEventListener('click', () => {
+                this.hideProfileModal();
+            });
+        }
+
+        if (aboutStoreBtn) {
+            aboutStoreBtn.addEventListener('click', () => {
+                this.hideProfileModal();
+                this.showBadgeModal('store-info');
+            });
+        }
+
+        if (rememberingBtn) {
+            rememberingBtn.addEventListener('click', () => {
+                this.hideProfileModal();
+                this.showRememberingModal();
+            });
+        }
+
+        if (settingsBtn) {
+            settingsBtn.addEventListener('click', () => {
+                this.hideProfileModal();
+                this.showSettingsModal();
+            });
+        }
+
+        if (adminPanelBtn) {
+            adminPanelBtn.addEventListener('click', () => {
+                this.hideProfileModal();
+                this.showAdminPanel();
+            });
+        }
+
+        // Admin panel menu button
+        const adminPanelMenuBtn = document.getElementById('adminPanelMenuBtn');
+        if (adminPanelMenuBtn) {
+            adminPanelMenuBtn.addEventListener('click', () => {
+                this.hideProfileModal();
+                this.showAdminAuthModal();
+            });
+        }
+
+        // Settings modal
+        const closeSettingsModal = document.getElementById('closeSettingsModal');
+        if (closeSettingsModal) {
+            closeSettingsModal.addEventListener('click', () => {
+                this.hideSettingsModal();
+            });
+        }
+
+        // Admin modal
+        const closeAdminModal = document.getElementById('closeAdminModal');
+        if (closeAdminModal) {
+            closeAdminModal.addEventListener('click', () => {
+                this.hideAdminPanel();
+            });
+        }
+
+        // Remembering modal
+        const closeRememberingModal = document.getElementById('closeRememberingModal');
+        if (closeRememberingModal) {
+            closeRememberingModal.addEventListener('click', () => {
+                this.hideRememberingModal();
+            });
+        }
+
+        // Badge modal
+        const badgeModalClose = document.getElementById('badgeModalClose');
+        if (badgeModalClose) {
+            badgeModalClose.addEventListener('click', () => {
+                this.hideBadgeModal();
+            });
+        }
+
+
+        this.setupSettingsControls();
+        this.setupAdminControls();
+        this.checkAdminStatus();
+        this.loadBackgroundTheme();
+
+        // Close modals on background click
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('profile-modal')) {
+                this.hideProfileModal();
+            }
+            if (e.target.classList.contains('remembering-modal')) {
+                this.hideRememberingModal();
+            }
+            if (e.target.classList.contains('badge-modal')) {
+                this.hideBadgeModal();
+            }
+            if (e.target.classList.contains('settings-modal')) {
+                this.hideSettingsModal();
+            }
+            if (e.target.classList.contains('admin-modal')) {
+                this.hideAdminPanel();
+            }
+        });
     }
 
-    hideBrowserErrorModal(modal) {
-        if (modal && modal.parentNode) {
+    showProfileModal() {
+        const modal = document.getElementById('profileModal');
+        if (modal) {
+            this.updateProfileUI();
+            modal.classList.add('show');
+            document.body.style.overflow = 'hidden';
+        }
+    }
+
+    hideProfileModal() {
+        const modal = document.getElementById('profileModal');
+        if (modal) {
             modal.classList.remove('show');
-            setTimeout(() => {
-                modal.remove();
-            }, 300);
+            document.body.style.overflow = '';
         }
     }
 
-    updateActiveNavLink(activeLink = null) {
-        const navLinks = document.querySelectorAll('.nav-link');
-        navLinks.forEach(link => link.classList.remove('active'));
-        
-        if (activeLink) {
-            activeLink.classList.add('active');
-        } else {
-            // Default to home
-            const homeLink = document.querySelector('.nav-link[href="#home"]');
-            if (homeLink) homeLink.classList.add('active');
+    showRememberingModal() {
+        const modal = document.getElementById('rememberingModal');
+        if (modal) {
+            modal.classList.add('show');
+            document.body.style.overflow = 'hidden';
         }
     }
 
-    updateActiveCategoryCard(activeCard) {
-        const categoryCards = document.querySelectorAll('.category-card');
-        categoryCards.forEach(card => card.classList.remove('active'));
-        activeCard.classList.add('active');
-    }
-
-    clearActiveCategoryCards() {
-        const categoryCards = document.querySelectorAll('.category-card');
-        categoryCards.forEach(card => card.classList.remove('active'));
-    }
-
-    showLoading() {
-        const loading = document.getElementById('loading');
-        const appsGrid = document.getElementById('appsGrid');
-        const noResults = document.getElementById('noResults');
-        
-        if (loading) loading.style.display = 'block';
-        if (appsGrid) appsGrid.style.display = 'none';
-        if (noResults) noResults.style.display = 'none';
-    }
-
-    hideLoading() {
-        const loading = document.getElementById('loading');
-        const appsGrid = document.getElementById('appsGrid');
-        
-        if (loading) loading.style.display = 'none';
-        if (appsGrid) appsGrid.style.display = 'grid';
-    }
-
-    // Public methods for external use
-    addApp(appData) {
-        if (!appData.id || !appData.name || !appData.downloadUrl) {
-            console.error('Invalid app data. Required fields: id, name, downloadUrl');
-            return false;
+    hideRememberingModal() {
+        const modal = document.getElementById('rememberingModal');
+        if (modal) {
+            modal.classList.remove('show');
+            document.body.style.overflow = '';
         }
-
-        // Check if app already exists
-        const existingApp = this.apps.find(app => app.id === appData.id);
-        if (existingApp) {
-            console.warn(`App with id "${appData.id}" already exists`);
-            return false;
-        }
-
-        // Add default values for missing fields
-        const newApp = {
-            category: 'productivity',
-            rating: 4.0,
-            description: 'No description available.',
-            icon: 'fas fa-mobile-alt',
-            developer: 'Unknown Developer',
-            ...appData
-        };
-
-        this.apps.push(newApp);
-        this.renderApps();
-        return true;
     }
-
-    removeApp(appId) {
-        const index = this.apps.findIndex(app => app.id === appId);
-        if (index !== -1) {
-            this.apps.splice(index, 1);
-            this.renderApps();
-            return true;
-        }
-        return false;
-    }
-
-    searchApps(searchTerm) {
-        this.currentSearchTerm = searchTerm.toLowerCase().trim();
-        const searchInput = document.getElementById('searchInput');
-        if (searchInput) {
-            searchInput.value = searchTerm;
-        }
-        this.filterAndRenderApps();
-    }
-
-    renderHotApps() {
-        let hotApps = this.apps.filter(app => app.isHot);
-        
-        // Limit hot apps for older devices
-        if (this.isOlderDevice && this.maxHotApps) {
-            hotApps = hotApps.slice(0, this.maxHotApps);
-        }
-        
-        const hotAppsGrid = document.getElementById('hotAppsGrid');
-        
-        if (!hotAppsGrid) return;
-        
-        hotAppsGrid.innerHTML = hotApps.map(app => this.createAppCard(app, true)).join('');
-        
-        // Add click event listeners to download buttons
-        const downloadButtons = hotAppsGrid.querySelectorAll('.download-btn');
-        downloadButtons.forEach((button, index) => {
-            button.addEventListener('click', (e) => {
-                e.preventDefault();
-                const app = hotApps[index];
-                this.handleDownload(app);
-            });
-        });
-
-        // Add click event listeners to badges
-        const badges = hotAppsGrid.querySelectorAll('.app-badge');
-        badges.forEach(badge => {
-            badge.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const badgeType = badge.dataset.badgeType;
-                this.showBadgeModal(badgeType);
-            });
-        });
-    }
-
-    
 
     showBadgeModal(badgeType) {
         const modal = document.getElementById('badgeModal');
         const title = document.getElementById('badgeModalTitle');
         const body = document.getElementById('badgeModalBody');
         const icon = document.getElementById('badgeModalIcon');
-        
+
         if (!modal || !title || !body || !icon) return;
-        
+
         const badgeInfo = {
             'data-sharing': {
                 title: 'Data Sharing Notice',
@@ -539,28 +603,28 @@ class AcueStore {
                         <p><strong>Store Information</strong></p>
                         <div class="info-grid">
                             <div class="info-item">
-                                <span class="info-label">Store UI (Glass):</span>
-                                <span class="info-value">3.0</span>
+                                <span class="info-label">Store UI:</span>
+                                <span class="info-value">4.0</span>
                             </div>
                             <div class="info-item">
                                 <span class="info-label">Security Patch:</span>
-                                <span class="info-value">July 8, 2025</span>
+                                <span class="info-value">July 12, 2025</span>
                             </div>
                             <div class="info-item">
                                 <span class="info-label">ASPFU Version:</span>
                                 <span class="info-value">Beta-S6000ASPFUV918</span>
                             </div>
                             <div class="info-item">
-                                <span class="info-label">Axcu Build:</span>
-                                <span class="info-value">S6000Y25MJD8SU03</span>
+                                <span class="info-label">Build:</span>
+                                <span class="info-value">S6000Y25MJYD13SU04</span>
                             </div>
                         </div>
-                        <p>Acue Store provides safe and verified APK downloads from APKPure. All apps are scanned for security before being made available.</p>
+                        <p>Nexora Store provides safe and verified APK downloads from APKPure. All apps are scanned for security before being made available.</p>
                     </div>
                 `
             }
         };
-        
+
         const info = badgeInfo[badgeType];
         if (info) {
             title.textContent = info.title;
@@ -568,440 +632,1380 @@ class AcueStore {
             body.innerHTML = info.content;
             modal.classList.add('show');
             document.body.style.overflow = 'hidden';
-            
-            // Add immediate close button handler after modal is shown
-            setTimeout(() => {
-                const closeBtn = document.getElementById('badgeModalClose');
-                if (closeBtn) {
-                    closeBtn.onclick = (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        this.hideBadgeModal();
-                    };
-                }
-            }, 50);
         }
     }
 
     hideBadgeModal() {
-        console.log('hideBadgeModal called'); // Debug log
         const modal = document.getElementById('badgeModal');
         if (modal) {
             modal.classList.remove('show');
             document.body.style.overflow = '';
-            console.log('Modal hidden successfully'); // Debug log
-        } else {
-            console.log('Modal element not found'); // Debug log
         }
-    }
-
-    initBadgeModal() {
-        // Remove any existing event listeners to prevent duplicates
-        document.removeEventListener('click', this.modalCloseHandler);
-        document.removeEventListener('keydown', this.modalKeyHandler);
-        
-        // Create bound handlers
-        this.modalCloseHandler = (e) => {
-            // Check for close button click
-            if (e.target.classList.contains('badge-modal-close') || 
-                e.target.closest('.badge-modal-close') ||
-                e.target.id === 'badgeModalClose' ||
-                e.target.closest('#badgeModalClose')) {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('Close button clicked'); // Debug log
-                this.hideBadgeModal();
-                return;
-            }
-            
-            // Check for modal background click
-            if (e.target.classList.contains('badge-modal')) {
-                console.log('Modal background clicked'); // Debug log
-                this.hideBadgeModal();
-            }
-        };
-        
-        this.modalKeyHandler = (e) => {
-            if (e.key === 'Escape') {
-                console.log('Escape key pressed'); // Debug log
-                this.hideBadgeModal();
-            }
-        };
-        
-        // Add event listeners
-        document.addEventListener('click', this.modalCloseHandler, true);
-        document.addEventListener('keydown', this.modalKeyHandler);
     }
 
     detectDevice() {
         const userAgent = navigator.userAgent;
-        const platform = navigator.platform;
-        const maxTouchPoints = navigator.maxTouchPoints;
-        const screenWidth = window.screen.width;
-        const screenHeight = window.screen.height;
-
-        let deviceType = 'Desktop';
-        let os = 'Unknown';
-        let browser = 'Unknown';
-
-        // Detect OS
-        if (/Android/i.test(userAgent)) {
-            os = 'Android';
-            deviceType = 'Mobile';
-        } else if (/iPhone|iPad|iPod/i.test(userAgent)) {
-            os = 'iOS';
-            deviceType = /iPad/i.test(userAgent) ? 'Tablet' : 'Mobile';
-        } else if (/Windows NT/i.test(userAgent)) {
-            os = 'Windows';
-        } else if (/Mac OS X/i.test(userAgent)) {
-            os = 'macOS';
-        } else if (/Linux/i.test(userAgent)) {
-            os = 'Linux';
-        }
-
-        // Detect Browser
-        if (/Chrome/i.test(userAgent) && !/Edg/i.test(userAgent)) {
-            browser = 'Chrome';
-        } else if (/Firefox/i.test(userAgent)) {
-            browser = 'Firefox';
-        } else if (/Safari/i.test(userAgent) && !/Chrome/i.test(userAgent)) {
-            browser = 'Safari';
-        } else if (/Edg/i.test(userAgent)) {
-            browser = 'Edge';
-        }
-
-        // Refine device type based on screen size and touch
-        if (deviceType === 'Desktop') {
-            if (maxTouchPoints > 0 && screenWidth <= 1024) {
-                deviceType = 'Tablet';
-            } else if (screenWidth <= 768) {
-                deviceType = 'Mobile';
-            }
-        }
-
         return {
-            type: deviceType,
-            os: os,
-            browser: browser,
-            screenWidth: screenWidth,
-            screenHeight: screenHeight,
-            touchEnabled: maxTouchPoints > 0
+            type: /Mobi|Android/i.test(userAgent) ? 'Mobile' : 'Desktop',
+            os: /Android/i.test(userAgent) ? 'Android' : 
+                /iPhone|iPad|iPod/i.test(userAgent) ? 'iOS' : 'Other'
         };
-    }
-
-    displayDeviceInfo() {
-        const deviceIndicator = document.getElementById('deviceIndicator');
-        if (deviceIndicator) {
-            const device = this.deviceInfo;
-            const deviceIcon = this.getDeviceIcon(device.type);
-            deviceIndicator.innerHTML = `${deviceIcon} ${device.type} | ${device.os}`;
-            deviceIndicator.title = `Device: ${device.type}\nOS: ${device.os}\nBrowser: ${device.browser}\nScreen: ${device.screenWidth}x${device.screenHeight}\nTouch: ${device.touchEnabled ? 'Yes' : 'No'}`;
-        }
-    }
-
-    getDeviceIcon(deviceType) {
-        switch (deviceType) {
-            case 'Mobile':
-                return '📱';
-            case 'Tablet':
-                return '📱';
-            case 'Desktop':
-                return '💻';
-            default:
-                return '🖥️';
-        }
-    }
-
-    initLGWingSupport() {
-        // Disable LG Wing support completely
-        this.lgWingDetected = false;
-        document.body.classList.remove('lg-wing-mode');
-        this.disableVirtualTouchpad();
-    }
-
-    detectLGWing() {
-        // Detect LG Wing specific conditions
-        const isLandscape = window.orientation === 90 || window.orientation === -90;
-        const screenRatio = window.screen.width / window.screen.height;
-        const isLGWingDimensions = (
-            (window.screen.width >= 2340 && window.screen.height <= 1080) ||
-            (window.innerWidth >= 2340 && window.innerHeight <= 1080)
-        );
-        
-        return isLandscape && isLGWingDimensions && screenRatio > 2;
-    }
-
-    setupVirtualTouchpad() {
-        const touchpad = document.getElementById('virtualTouchpad');
-        const cursor = document.getElementById('touchpadCursor');
-        const leftClick = document.getElementById('leftClick');
-        const rightClick = document.getElementById('rightClick');
-        const scrollMode = document.getElementById('scrollMode');
-        
-        if (!touchpad || !cursor) return;
-        
-        let isScrollMode = false;
-        let cursorX = 50;
-        let cursorY = 50;
-        
-        // Show secondary display
-        const secondaryDisplay = document.getElementById('secondaryDisplay');
-        if (secondaryDisplay) {
-            secondaryDisplay.style.display = 'block';
-        }
-        
-        // Touchpad movement
-        touchpad.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            const touch = e.touches[0];
-            const rect = touchpad.getBoundingClientRect();
-            
-            cursorX = ((touch.clientX - rect.left) / rect.width) * 100;
-            cursorY = ((touch.clientY - rect.top) / rect.height) * 100;
-            
-            cursorX = Math.max(0, Math.min(100, cursorX));
-            cursorY = Math.max(0, Math.min(100, cursorY));
-            
-            cursor.style.left = cursorX + '%';
-            cursor.style.top = cursorY + '%';
-            
-            if (isScrollMode) {
-                this.simulateScroll(cursorX, cursorY);
-            } else {
-                this.simulateMouseMove(cursorX, cursorY);
-            }
-        });
-        
-        // Mouse movement for desktop testing
-        touchpad.addEventListener('mousemove', (e) => {
-            const rect = touchpad.getBoundingClientRect();
-            
-            cursorX = ((e.clientX - rect.left) / rect.width) * 100;
-            cursorY = ((e.clientY - rect.top) / rect.height) * 100;
-            
-            cursor.style.left = cursorX + '%';
-            cursor.style.top = cursorY + '%';
-            
-            if (isScrollMode) {
-                this.simulateScroll(cursorX, cursorY);
-            }
-        });
-        
-        // Left click
-        leftClick.addEventListener('click', () => {
-            this.simulateClick(cursorX, cursorY, 'left');
-            leftClick.classList.add('active');
-            setTimeout(() => leftClick.classList.remove('active'), 200);
-        });
-        
-        // Right click
-        rightClick.addEventListener('click', () => {
-            this.simulateClick(cursorX, cursorY, 'right');
-            rightClick.classList.add('active');
-            setTimeout(() => rightClick.classList.remove('active'), 200);
-        });
-        
-        // Scroll mode toggle
-        scrollMode.addEventListener('click', () => {
-            isScrollMode = !isScrollMode;
-            scrollMode.classList.toggle('active', isScrollMode);
-            touchpad.style.cursor = isScrollMode ? 'ns-resize' : 'crosshair';
-        });
-    }
-
-    simulateMouseMove(x, y) {
-        // Convert touchpad coordinates to main display coordinates
-        const mainDisplay = document.getElementById('mainDisplay');
-        if (!mainDisplay) return;
-        
-        const rect = mainDisplay.getBoundingClientRect();
-        const targetX = (x / 100) * rect.width;
-        const targetY = (y / 100) * rect.height;
-        
-        // Find element at position
-        const elementAtPosition = document.elementFromPoint(targetX, targetY);
-        if (elementAtPosition) {
-            // Add hover effect
-            elementAtPosition.dispatchEvent(new MouseEvent('mouseenter'));
-        }
-    }
-
-    simulateClick(x, y, button = 'left') {
-        const mainDisplay = document.getElementById('mainDisplay');
-        if (!mainDisplay) return;
-        
-        const rect = mainDisplay.getBoundingClientRect();
-        const targetX = (x / 100) * rect.width;
-        const targetY = (y / 100) * rect.height;
-        
-        // Find element at position
-        const elementAtPosition = document.elementFromPoint(targetX, targetY);
-        if (elementAtPosition) {
-            if (button === 'left') {
-                elementAtPosition.click();
-            } else if (button === 'right') {
-                elementAtPosition.dispatchEvent(new MouseEvent('contextmenu', {
-                    bubbles: true,
-                    cancelable: true
-                }));
-            }
-            
-            // Visual feedback
-            this.showClickFeedback(targetX, targetY);
-        }
-    }
-
-    simulateScroll(x, y) {
-        const mainDisplay = document.getElementById('mainDisplay');
-        if (!mainDisplay) return;
-        
-        const rect = mainDisplay.getBoundingClientRect();
-        const targetX = (x / 100) * rect.width;
-        const targetY = (y / 100) * rect.height;
-        
-        // Scroll based on Y position
-        const scrollDirection = y > 50 ? 1 : -1;
-        const scrollAmount = Math.abs(y - 50) * 2;
-        
-        mainDisplay.scrollBy(0, scrollDirection * scrollAmount);
-    }
-
-    showClickFeedback(x, y) {
-        const feedback = document.createElement('div');
-        feedback.className = 'click-feedback';
-        feedback.style.cssText = `
-            position: fixed;
-            left: ${x}px;
-            top: ${y}px;
-            width: 20px;
-            height: 20px;
-            border: 2px solid #6366F1;
-            border-radius: 50%;
-            pointer-events: none;
-            z-index: 9999;
-            transform: translate(-50%, -50%) scale(0);
-            animation: clickFeedback 0.3s ease-out forwards;
-        `;
-        
-        document.body.appendChild(feedback);
-        
-        setTimeout(() => {
-            document.body.removeChild(feedback);
-        }, 300);
-    }
-
-    disableVirtualTouchpad() {
-        const secondaryDisplay = document.getElementById('secondaryDisplay');
-        if (secondaryDisplay) {
-            secondaryDisplay.style.display = 'none';
-        }
     }
 
     detectOlderDevice() {
         const userAgent = navigator.userAgent.toLowerCase();
-        const memory = navigator.deviceMemory || 4; // Default to 4GB if not available
-        const cores = navigator.hardwareConcurrency || 4; // Default to 4 cores
-        
-        // Check for specific older devices
+        const memory = navigator.deviceMemory || 4;
+        const cores = navigator.hardwareConcurrency || 4;
+
         const olderDevices = [
-            'sm-g935', // Galaxy S7 Edge
-            'sm-g930', // Galaxy S7
-            'sm-g925', // Galaxy S6 Edge
-            'sm-g920', // Galaxy S6
-            'iphone 6',
-            'iphone 7',
-            'iphone 8'
+            'sm-g935', 'sm-g930', 'sm-g925', 'sm-g920',
+            'iphone 6', 'iphone 7', 'iphone 8'
         ];
-        
+
         const isOlderDevice = olderDevices.some(device => userAgent.includes(device));
         const hasLowMemory = memory < 4;
         const hasLowCores = cores < 4;
-        
+
         return isOlderDevice || hasLowMemory || hasLowCores;
     }
 
     optimizeForOlderDevices() {
-        // Reduce animation complexity
-        document.documentElement.style.setProperty('--animation-duration', '0.1s');
-        
-        // Disable expensive effects
+        console.log('Optimizing for older device...');
+
+        // Reduce animations
         const style = document.createElement('style');
         style.textContent = `
-            .app-card {
-                backdrop-filter: none !important;
-                -webkit-backdrop-filter: none !important;
-                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2) !important;
+            * {
+                animation-duration: 0.1s !important;
+                transition-duration: 0.1s !important;
             }
-            
-            .category-card {
-                backdrop-filter: none !important;
-                -webkit-backdrop-filter: none !important;
-                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2) !important;
-            }
-            
-            .header {
-                backdrop-filter: none !important;
-                -webkit-backdrop-filter: none !important;
-            }
-            
-            .hero::before {
-                display: none !important;
-            }
-            
-            body::before {
-                display: none !important;
-            }
-            
-            .app-card:hover {
-                transform: translateY(-2px) !important;
-                animation: none !important;
-            }
-            
-            .category-card:hover {
-                transform: translateY(-2px) !important;
-                animation: none !important;
+
+            .horizontal-scroll {
+                -webkit-overflow-scrolling: touch;
+                scroll-behavior: auto;
             }
         `;
         document.head.appendChild(style);
-        
-        // Reduce the number of hot apps displayed on mobile
-        if (window.innerWidth <= 768) {
-            this.maxHotApps = 5;
+    }
+
+    setupAuthHandlers() {
+        // Show/hide form toggles
+        const showRegister = document.getElementById('showRegister');
+        const showLogin = document.getElementById('showLogin');
+        const loginForm = document.getElementById('loginForm');
+        const registerForm = document.getElementById('registerForm');
+
+        if (showRegister) {
+            showRegister.addEventListener('click', (e) => {
+                e.preventDefault();
+                loginForm.style.display = 'none';
+                registerForm.style.display = 'block';
+            });
         }
-        
-        // Use requestIdleCallback for non-critical operations
-        if ('requestIdleCallback' in window) {
-            this.useIdleCallback = true;
+
+        if (showLogin) {
+            showLogin.addEventListener('click', (e) => {
+                e.preventDefault();
+                registerForm.style.display = 'none';
+                loginForm.style.display = 'block';
+            });
+        }
+
+        // Form submissions
+        const loginFormElement = document.getElementById('loginFormElement');
+        const registerFormElement = document.getElementById('registerFormElement');
+
+        if (loginFormElement) {
+            loginFormElement.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.handleLogin();
+            });
+        }
+
+        if (registerFormElement) {
+            registerFormElement.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.handleRegister();
+            });
+        }
+
+        // Logout
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', () => {
+                this.handleLogout();
+            });
         }
     }
 
-    renderAppsOptimized(appsToRender = this.apps) {
-        // Always use regular rendering to ensure all apps show
-        this.renderApps(appsToRender);
+    loadUserSession() {
+        const savedUser = localStorage.getItem('nexoraStoreUser');
+        if (savedUser) {
+            this.currentUser = JSON.parse(savedUser);
+            this.updateProfileUI();
+        }
+    }
+
+    saveUserSession() {
+        if (this.currentUser) {
+            localStorage.setItem('nexoraStoreUser', JSON.stringify(this.currentUser));
+        } else {
+            localStorage.removeItem('nexoraStoreUser');
+        }
+    }
+
+    async handleLogin() {
+        const username = document.getElementById('loginUsername').value;
+        const password = document.getElementById('loginPassword').value;
+
+        if (!username || !password) {
+            alert('Please fill in all fields');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                this.currentUser = data.user;
+                this.saveUserSession();
+                this.updateProfileUI();
+                this.hideProfileModal();
+                this.showSuccessMessage('Login successful!');
+            } else {
+                alert(data.error || 'Login failed');
+            }
+        } catch (error) {
+            console.error('Login error:', error);
+            alert('Login failed. Please try again.');
+        }
+    }
+
+    async handleRegister() {
+        const username = document.getElementById('registerUsername').value;
+        const password = document.getElementById('registerPassword').value;
+        const confirmPassword = document.getElementById('registerConfirmPassword').value;
+
+        if (!username || !password || !confirmPassword) {
+            alert('Please fill in all fields');
+            return;
+        }
+
+        if (password !== confirmPassword) {
+            alert('Passwords do not match');
+            return;
+        }
+
+        if (password.length < 6) {
+            alert('Password must be at least 6 characters long');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password, email: `${username}@acuestore.com` })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                // Auto-login the new user
+                this.currentUser = data.user;
+                this.saveUserSession();
+                this.updateProfileUI();
+                this.hideProfileModal();
+                this.showSuccessMessage('Account created successfully!');
+            } else {
+                alert(data.error || 'Registration failed');
+            }
+        } catch (error) {
+            console.error('Registration error:', error);
+            alert('Registration failed. Please try again.');
+        }
+    }
+
+    handleLogout() {
+        this.currentUser = null;
+        this.saveUserSession();
+        this.updateProfileUI();
+        this.hideProfileModal();
+        this.showSuccessMessage('Logged out successfully!');
+    }
+
+    updateProfileUI() {
+        const profileName = document.getElementById('profileName');
+        const profileEmail = document.getElementById('profileEmail');
+        const loginForm = document.getElementById('loginForm');
+        const registerForm = document.getElementById('registerForm');
+        const logoutSection = document.getElementById('logoutSection');
+
+        if (this.currentUser) {
+            // User is logged in
+            profileName.textContent = this.currentUser.username;
+            profileEmail.textContent = this.currentUser.email;
+            loginForm.style.display = 'none';
+            registerForm.style.display = 'none';
+            logoutSection.style.display = 'block';
+        } else {
+            // User is not logged in
+            profileName.textContent = 'Guest User';
+            profileEmail.textContent = 'Not logged in';
+            loginForm.style.display = 'block';
+            registerForm.style.display = 'none';
+            logoutSection.style.display = 'none';
+        }
+    }
+
+    showSuccessMessage(message) {
+        // Create a temporary success message
+        const successDiv = document.createElement('div');
+        successDiv.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--success-color);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            z-index: 3000;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        `;
+        successDiv.textContent = message;
+        document.body.appendChild(successDiv);
+
+        // Remove after 3 seconds
+        setTimeout(() => {
+            if (successDiv.parentNode) {
+                successDiv.parentNode.removeChild(successDiv);
+            }
+        }, 3000);
+    }
+
+    // Admin Authentication Handlers
+    setupAdminAuthHandlers() {
+        // Close admin auth modal
+        const closeAdminAuthModal = document.getElementById('closeAdminAuthModal');
+        if (closeAdminAuthModal) {
+            closeAdminAuthModal.addEventListener('click', () => {
+                this.hideAdminAuthModal();
+            });
+        }
+
+        // Step 1: Primary PIN
+        const step1Btn = document.getElementById('step1Btn');
+        const primaryPinInput = document.getElementById('primaryPin');
+        if (step1Btn) {
+            step1Btn.addEventListener('click', () => {
+                this.validatePrimaryPin();
+            });
+        }
+        if (primaryPinInput) {
+            primaryPinInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    this.validatePrimaryPin();
+                }
+            });
+        }
+
+        // Step 2: Security PIN
+        const step2Btn = document.getElementById('step2Btn');
+        const securityPinInput = document.getElementById('securityPin');
+        if (step2Btn) {
+            step2Btn.addEventListener('click', () => {
+                this.validateSecurityPin();
+            });
+        }
+        if (securityPinInput) {
+            securityPinInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    this.validateSecurityPin();
+                }
+            });
+        }
+
+        // Step 3: Security Question
+        const step3Btn = document.getElementById('step3Btn');
+        const securityAnswerInput = document.getElementById('securityAnswer');
+        if (step3Btn) {
+            step3Btn.addEventListener('click', () => {
+                this.validateSecurityAnswer();
+            });
+        }
+        if (securityAnswerInput) {
+            securityAnswerInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    this.validateSecurityAnswer();
+                }
+            });
+        }
+    }
+
+    showAdminAuthModal() {
+        const modal = document.getElementById('adminAuthModal');
+        if (modal) {
+            modal.classList.add('show');
+            document.body.style.overflow = 'hidden';
+            this.resetAdminAuthSteps();
+        }
+    }
+
+    hideAdminAuthModal() {
+        const modal = document.getElementById('adminAuthModal');
+        if (modal) {
+            modal.classList.remove('show');
+            document.body.style.overflow = '';
+            this.resetAdminAuthSteps();
+        }
+    }
+
+    resetAdminAuthSteps() {
+        // Reset all steps
+        document.querySelectorAll('.auth-step').forEach(step => {
+            step.classList.remove('active');
+        });
+        document.getElementById('step1').classList.add('active');
+
+        // Clear inputs
+        document.getElementById('primaryPin').value = '';
+        document.getElementById('securityPin').value = '';
+        document.getElementById('securityAnswer').value = '';
+    }
+
+    validatePrimaryPin() {
+        const primaryPin = document.getElementById('primaryPin').value;
+        if (primaryPin === window.adminConfig.primaryPin) {
+            this.goToStep(2);
+        } else {
+            alert('Invalid primary PIN');
+            document.getElementById('primaryPin').value = '';
+        }
+    }
+
+    validateSecurityPin() {
+        const securityPin = document.getElementById('securityPin').value;
+        if (securityPin === window.adminConfig.securityPin) {
+            this.goToStep(3);
+        } else {
+            alert('Invalid security PIN');
+            document.getElementById('securityPin').value = '';
+        }
+    }
+
+    validateSecurityAnswer() {
+        const securityAnswer = document.getElementById('securityAnswer').value.trim();
+        if (securityAnswer === window.adminConfig.securityAnswer) {
+            window.adminConfig.isAdmin = true;
+            this.hideAdminAuthModal();
+            this.showAdminPanel();
+        } else {
+            alert('Invalid answer');
+            document.getElementById('securityAnswer').value = '';
+        }
+    }
+
+    goToStep(stepNumber) {
+        // Hide all steps
+        document.querySelectorAll('.auth-step').forEach(step => {
+            step.classList.remove('active');
+        });
+
+        // Show target step
+        document.getElementById(`step${stepNumber}`).classList.add('active');
+    }
+
+    // Settings
+    showSettingsModal() {
+        const modal = document.getElementById('settingsModal');
+        if (modal) {
+            modal.classList.add('show');
+            document.body.style.overflow = 'hidden';
+        }
+    }
+
+    hideSettingsModal() {
+        const modal = document.getElementById('settingsModal');
+        if (modal) {
+            modal.classList.remove('show');
+            document.body.style.overflow = '';
+        }
+    }
+
+    setupSettingsControls() {
+        const resetPasswordBtn = document.getElementById('resetPasswordBtn');
+        const backgroundOptions = document.querySelectorAll('.background-option');
+
+        if (resetPasswordBtn) {
+            resetPasswordBtn.addEventListener('click', () => {
+                this.resetPassword();
+            });
+        }
+
+        backgroundOptions.forEach(option => {
+            option.addEventListener('click', () => {
+                const themeType = option.dataset.theme;
+                this.changeBackgroundTheme(themeType);
+                this.updateActiveBackground(option);
+            });
+        });
+    }
+
+    resetPassword() {
+        if (!this.currentUser) {
+            alert('Please log in first');
+            return;
+        }
+
+        const newPassword = prompt('Enter new password (minimum 6 characters):');
+        if (!newPassword) return;
+
+        if (newPassword.length < 6) {
+            alert('Password must be at least 6 characters long');
+            return;
+        }
+
+        const storedUsers = JSON.parse(localStorage.getItem('nexoraStoreUsers') || '[]');
+        const userIndex = storedUsers.findIndex(u => u.username === this.currentUser.username);
+
+        if (userIndex !== -1) {
+            storedUsers[userIndex].password = newPassword;
+            localStorage.setItem('nexoraStoreUsers', JSON.stringify(storedUsers));
+            this.showSuccessMessage('Password reset successfully!');
+        }
+    }
+
+    changeBackgroundTheme(themeType) {
+        // Remove all theme classes
+        document.body.classList.remove('theme-pink', 'theme-blue', 'theme-green', 'theme-purple', 'theme-white');
+
+        // Add new theme class (default doesn't need a class)
+        if (themeType !== 'default') {
+            document.body.classList.add('theme-' + themeType);
+        }
+
+        // Save to localStorage
+        localStorage.setItem('nexoraStoreTheme', themeType);
+    }
+
+    updateActiveBackground(activeOption) {
+        const options = document.querySelectorAll('.background-option');
+        options.forEach(option => option.classList.remove('active'));
+        activeOption.classList.add('active');
+    }
+
+    loadBackgroundTheme() {
+        const savedTheme = localStorage.getItem('nexoraStoreTheme') || 'default';
+        this.changeBackgroundTheme(savedTheme);
+
+        const activeOption = document.querySelector(`[data-theme="${savedTheme}"]`);
+        if (activeOption) {
+            this.updateActiveBackground(activeOption);
+        }
+    }
+
+    // Admin Panel
+    checkAdminStatus() {
+        // Admin status is now set through PIN authentication
+        // Remove IP check and make admin panel available to everyone
+        window.adminConfig.isAdmin = false;
+    }
+
+    showAdminPanel() {
+        if (!window.adminConfig.isAdmin) {
+            alert('Access denied. Admin privileges required.');
+            return;
+        }
+
+        const modal = document.getElementById('adminModal');
+        if (modal) {
+            modal.classList.add('show');
+            document.body.style.overflow = 'hidden';
+            this.loadAdminData();
+            this.populateAdminSelects();
+        }
+    }
+
+    hideAdminPanel() {
+        const modal = document.getElementById('adminModal');
+        if (modal) {
+            modal.classList.remove('show');
+            document.body.style.overflow = '';
+        }
+    }
+
+    setupAdminControls() {
+        const adminTabs = document.querySelectorAll('.admin-tab');
+        const addAppBtn = document.getElementById('addAppBtn');
+        const addBadgeBtn = document.getElementById('addBadgeBtn');
+        const updateRatingBtn = document.getElementById('updateRatingBtn');
+
+        adminTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabName = tab.dataset.tab;
+                this.switchAdminTab(tabName);
+                this.updateActiveTab(tab);
+            });
+        });
+
+        if (addAppBtn) {
+            addAppBtn.addEventListener('click', () => {
+                this.addNewApp();
+            });
+        }
+
+        if (addBadgeBtn) {
+            addBadgeBtn.addEventListener('click', () => {
+                this.addBadgeToApp();
+            });
+        }
+
+        if (updateRatingBtn) {
+            updateRatingBtn.addEventListener('click', () => {
+                this.updateAppRating();
+            });
+        }
+    }
+
+    populateAdminSelects() {
+        const badgeAppSelect = document.getElementById('badgeAppSelect');
+        const ratingAppSelect = document.getElementById('ratingAppSelect');
+
+        // Clear existing options
+        if (badgeAppSelect) {
+            badgeAppSelect.innerHTML = '<option value="">Select App</option>';
+        }
+        if (ratingAppSelect) {
+            ratingAppSelect.innerHTML = '<option value="">Select App</option>';
+        }
+
+        // Add apps to selects
+        this.apps.forEach(app => {
+            const option = `<option value="${app.id}">${app.name}</option>`;
+            if (badgeAppSelect) {
+                badgeAppSelect.innerHTML += option;
+            }
+            if (ratingAppSelect) {
+                ratingAppSelect.innerHTML += option;
+            }
+        });
+    }
+
+    switchAdminTab(tabName) {
+        const sections = document.querySelectorAll('.admin-section');
+        sections.forEach(section => section.classList.remove('active'));
+
+        const targetSection = document.getElementById(tabName + 'Section');
+        if (targetSection) {
+            targetSection.classList.add('active');
+        }
+    }
+
+    updateActiveTab(activeTab) {
+        const tabs = document.querySelectorAll('.admin-tab');
+        tabs.forEach(tab => tab.classList.remove('active'));
+        activeTab.classList.add('active');
+    }
+
+    loadAdminData() {
+        this.loadUsersList();
+        this.loadAppsManagement();
+        this.loadBadgesList();
+        this.loadRatingsList();
+    }
+
+    loadBadgesList() {
+        const badgesList = document.getElementById('badgesList');
+        if (!badgesList) return;
+
+        const appsWithBadges = this.apps.filter(app => app.badges && app.badges.length > 0);
+
+        badgesList.innerHTML = appsWithBadges.map(app => {
+            const badgeItems = app.badges.map(badge => `
+                <span class="badge-item-display">${badge}</span>
+            `).join('');
+
+            return `
+                <div class="badge-item">
+                    <div class="badge-info">
+                        <h5>${app.name}</h5>
+                        <p>Badges: ${badgeItems}</p>
+                    </div>
+                    <div class="badge-actions">
+                        <button class="admin-btn" onclick="window.acueStore.manageBadges('${app.id}')">
+                            Manage Badges
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    loadRatingsList() {
+        const ratingsList = document.getElementById('ratingsList');
+        if (!ratingsList) return;
+
+        ratingsList.innerHTML = this.apps.map(app => {
+            return `
+                <div class="rating-item">
+                    <div class="rating-info">
+                        <h5>${app.name}</h5>
+                        <p>Current Rating: ${app.rating}/5</p>
+                    </div>
+                    <div class="rating-actions">
+                        <button class="admin-btn" onclick="window.acueStore.quickUpdateRating('${app.id}', ${Math.max(1, app.rating - 0.5)})">
+                            Lower Rating
+                        </button>
+                        <button class="admin-btn" onclick="window.acueStore.quickUpdateRating('${app.id}', ${Math.min(5, app.rating + 0.5)})">
+                            Raise Rating
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    quickUpdateRating(appId, newRating) {
+        const app = this.apps.find(a => a.id === appId);
+        if (!app) return;
+
+        const oldRating = app.rating;
+        app.rating = Math.round(newRating * 10) / 10; // Round to 1 decimal place
+        // Issue 2 fix: Saving admin changes to backend API instead of localStorage
+        this.saveAppsToDatabase();
+
+        // Refresh views
+        this.renderHotApps();
+        this.renderAllApps();
+        this.renderPopularApps();
+        this.loadAppsManagement();
+        this.loadRatingsList();
+
+        this.showSuccessMessage(`Rating updated for ${app.name} from ${oldRating} to ${app.rating}`);
+    }
+
+    loadAppsManagement() {
+        const appsManagementList = document.getElementById('appsManagementList');
+        if (!appsManagementList) return;
+
+        appsManagementList.innerHTML = this.apps.map(app => {
+            const badgesList = (app.badges || []).map(badge => `
+                <span class="admin-badge badge-${badge}">${window.badgeTypes[badge]?.icon || '🏷️'} ${badge}</span>
+            `).join('');
+
+            return `
+                <div class="app-management-item" data-app-id="${app.id}">
+                    <div class="app-management-header">
+                        <div class="app-icon-admin">
+                            <i class="${app.icon}"></i>
+                        </div>
+                        <div class="app-management-info">
+                            <h5>${app.name}</h5>
+                            <p>${app.developer} • ${app.category}</p>
+                            <div class="app-status">
+                                <span class="status-indicator ${this.isAppOnline(app) ? 'online' : 'offline'}">
+                                    ${this.isAppOnline(app) ? '🟢 Online' : '🔴 Offline'}
+                                </span>
+                                <span class="rating-display">⭐ ${app.rating}/5</span>
+                            </div>
+                            <div class="app-badges-admin">
+                                ${badgesList}
+                            </div>
+                        </div>
+                        <div class="app-management-actions">
+                            <button class="admin-btn-small" onclick="window.acueStore.editApp('${app.id}')">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="admin-btn-small" onclick="window.acueStore.manageBadges('${app.id}')">
+                                <i class="fas fa-tags"></i>
+                            </button>
+                            <button class="admin-btn-small danger" onclick="window.acueStore.removeApp('${app.id}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="app-details-expandable" id="details-${app.id}" style="display: none;">
+                        <div class="app-detail-row">
+                            <strong>Description:</strong> ${app.description}
+                        </div>
+                        <div class="app-detail-row">
+                            <strong>Download URL:</strong> 
+                            <a href="${app.downloadUrl}" target="_blank" class="download-link">${app.downloadUrl}</a>
+                        </div>
+                        <div class="app-detail-row">
+                            <strong>Hot App:</strong> ${app.isHot ? 'Yes' : 'No'}
+                        </div>
+                        <div class="app-detail-row">
+                            <strong>Last Checked:</strong> ${new Date().toLocaleString()}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        // Add click handlers for expanding details
+        const appItems = appsManagementList.querySelectorAll('.app-management-item');
+        appItems.forEach(item => {
+            const header = item.querySelector('.app-management-header');
+            const details = item.querySelector('.app-details-expandable');
+
+            header.addEventListener('click', (e) => {
+                if (e.target.closest('.app-management-actions')) return;
+
+                const isExpanded = details.style.display === 'block';
+                details.style.display = isExpanded ? 'none' : 'block';
+                header.classList.toggle('expanded', !isExpanded);
+            });
+        });
+    }
+
+    isAppOnline(app) {
+        // Simulate online status check - in real app, you'd ping the URL
+        const onlineApps = ['youtube', 'whatsapp', 'instagram', 'tiktok', 'spotify', 'facebook', 'telegram'];
+        return onlineApps.includes(app.id) || Math.random() > 0.3;
+    }
+
+    editApp(appId) {
+        const app = this.apps.find(a => a.id === appId);
+        if (!app) return;
+
+        const modal = this.createEditAppModal(app);
+        document.body.appendChild(modal);
+        modal.classList.add('show');
+    }
+
+    createEditAppModal(app) {
+        const modal = document.createElement('div');
+        modal.className = 'edit-app-modal';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Edit App: ${app.name}</h3>
+                    <button class="close-btn" onclick="this.closest('.edit-app-modal').remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="edit-form">
+                        <div class="form-group">
+                            <label>App Name</label>
+                            <input type="text" id="editAppName" value="${app.name}">
+                        </div>
+                        <div class="form-group">
+                            <label>Developer</label>
+                            <input type="text" id="editAppDeveloper" value="${app.developer}">
+                        </div>
+                        <div class="form-group">
+                            <label>Rating (1-5)</label>
+                            <input type="number" id="editAppRating" value="${app.rating}" min="1" max="5" step="0.1">
+                        </div>
+                        <div class="form-group">
+                            <label>Description</label>
+                            <textarea id="editAppDescription">${app.description}</textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Category</label>
+                            <select id="editAppCategory">
+                                <option value="social" ${app.category === 'social' ? 'selected' : ''}>Social</option>
+                                <option value="entertainment" ${app.category === 'entertainment' ? 'selected' : ''}>Entertainment</option>
+                                <option value="games" ${app.category === 'games' ? 'selected' : ''}>Games</option>
+                                <option value="productivity" ${app.category === 'productivity' ? 'selected' : ''}>Productivity</option>
+                                <option value="photography" ${app.category === 'photography' ? 'selected' : ''}>Photography</option>
+                                <option value="music" ${app.category === 'music' ? 'selected' : ''}>Music</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Download URL</label>
+                            <input type="url" id="editAppUrl" value="${app.downloadUrl}">
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="editAppHot" ${app.isHot ? 'checked' : ''}>
+                                Hot App
+                            </label>
+                        </div>
+                        <div class="form-actions">
+                            <button class="admin-btn" onclick="window.acueStore.saveAppChanges('${app.id}')">
+                                Save Changes
+                            </button>
+                            <button class="admin-btn" onclick="this.closest('.edit-app-modal').remove()">
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        });
+
+        return modal;
+    }
+
+    async saveAppChanges(appId) {
+        const app = this.apps.find(a => a.id === appId);
+        if (!app) return;
+
+        const updatedApp = {
+            name: document.getElementById('editAppName').value,
+            developer: document.getElementById('editAppDeveloper').value,
+            rating: parseFloat(document.getElementById('editAppRating').value),
+            description: document.getElementById('editAppDescription').value,
+            category: document.getElementById('editAppCategory').value,
+            download_url: document.getElementById('editAppUrl').value,
+            is_hot: document.getElementById('editAppHot').checked,
+            icon: app.icon
+        };
+
+        try {
+            const response = await fetch(`/api/admin/apps/${appId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedApp)
+            });
+
+            if (response.ok) {
+                // Reload apps from database and refresh all views
+                await this.loadAppsFromDatabase();
+                this.loadAppsManagement();
+
+                document.querySelector('.edit-app-modal').remove();
+                this.showSuccessMessage('App updated successfully!');
+            } else {
+                const error = await response.json();
+                alert('Failed to update app: ' + error.error);
+            }
+        } catch (error) {
+            console.error('Error updating app:', error);
+            alert('Failed to update app');
+        }
+    }
+
+    manageBadges(appId) {
+        const app = this.apps.find(a => a.id === appId);
+        if (!app) return;
+
+        const modal = this.createBadgeManagementModal(app);
+        document.body.appendChild(modal);
+        modal.classList.add('show');
+    }
+
+    createBadgeManagementModal(app) {
+        const modal = document.createElement('div');
+        modal.className = 'badge-management-modal';
+
+        const availableBadges = Object.keys(window.badgeTypes);
+        const appBadges = app.badges || [];
+
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Manage Badges: ${app.name}</h3>
+                    <button class="close-btn" onclick="this.closest('.badge-management-modal').remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="badge-management">
+                        <h4>Available Badges</h4>
+                        <div class="available-badges">
+                            ${availableBadges.map(badgeType => {
+                                const badge = window.badgeTypes[badgeType];
+                                const isSelected = appBadges.includes(badgeType);
+                                return `
+                                    <div class="badge-option ${isSelected ? 'selected' : ''}" data-badge="${badgeType}">
+                                        <span class="badge-icon">${badge.icon}</span>
+                                        <span class="badge-name">${badge.name}</span>
+                                        <input type="checkbox" ${isSelected ? 'checked' : ''}>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                        <div class="current-badges">
+                            <h4>Current Badges</h4>
+                            <div class="current-badges-list" id="currentBadgesList">
+                                ${appBadges.map(badgeType => {
+                                    const badge = window.badgeTypes[badgeType];
+                                    return `<span class="current-badge">${badge.icon} ${badge.name}</span>`;
+                                }).join('')}
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button class="admin-btn" onclick="window.acueStore.saveBadgeChanges('${app.id}')">
+                                Save Changes
+                            </button>
+                            <button class="admin-btn" onclick="this.closest('.badge-management-modal').remove()">
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Add event listeners for badge selection
+        const badgeOptions = modal.querySelectorAll('.badge-option');
+        badgeOptions.forEach(option => {
+            option.addEventListener('click', () => {
+                const checkbox = option.querySelector('input[type="checkbox"]');
+                checkbox.checked = !checkbox.checked;
+                option.classList.toggle('selected', checkbox.checked);
+                this.updateCurrentBadgesList(modal, app.id);
+            });
+        });
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        });
+
+        return modal;
+    }
+
+    updateCurrentBadgesList(modal, appId) {
+        const selectedBadges = Array.from(modal.querySelectorAll('.badge-option.selected'))
+            .map(option => option.dataset.badge);
+
+        const currentBadgesList = modal.querySelector('#currentBadgesList');
+        currentBadgesList.innerHTML = selectedBadges.map(badgeType => {
+            const badge = window.badgeTypes[badgeType];
+            return `<span class="current-badge">${badge.icon} ${badge.name}</span>`;
+        }).join('');
+    }
+
+    async saveBadgeChanges(appId) {
+        const modal = document.querySelector('.badge-management-modal');
+        const selectedBadges = Array.from(modal.querySelectorAll('.badge-option.selected'))
+            .map(option => option.dataset.badge);
+
+        try {
+            // Remove all existing badges for this app
+            const app = this.apps.find(a => a.id === appId);
+            if (app && app.badges) {
+                for (const badge of app.badges) {
+                    await fetch(`/api/admin/apps/${appId}/badges/${badge}`, {
+                        method: 'DELETE'
+                    });
+                }
+            }
+
+            // Add new badges
+            for (const badge of selectedBadges) {
+                const response = await fetch(`/api/admin/apps/${appId}/badges`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ badge_type: badge })
+                });
+
+                if (!response.ok) {
+                    console.error('Failed to add badge:', badge);
+                }
+            }
+
+            // Reload apps and refresh views
+            await this.loadAppsFromDatabase();
+            this.loadAppsManagement();
+
+            modal.remove();
+            this.showSuccessMessage('Badges updated successfully!');
+        } catch (error) {
+            console.error('Error updating badges:', error);
+            alert('Failed to update badges');
+        }
+    }
+
+    async addNewApp() {
+        const appName = document.getElementById('appName').value;
+        const appRating = parseFloat(document.getElementById('appRating').value);
+        const appBio = document.getElementById('appBio').value;
+        const appCategory = document.getElementById('appCategory').value;
+        const appDownloadLink = document.getElementById('appDownloadLink').value;
+
+        if (!appName || !appRating || !appBio || !appCategory || !appDownloadLink) {
+            alert('Please fill in all fields');
+            return;
+        }
+
+        if (appRating < 1 || appRating > 5) {
+            alert('Rating must be between 1 and 5');
+            return;
+        }
+
+        const newApp = {
+            id: appName.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now(),
+            name: appName,
+            developer: 'User Added',
+            category: appCategory,
+            rating: appRating,
+            description: appBio,
+            icon: 'fas fa-mobile-alt',
+            download_url: appDownloadLink,
+            is_hot: false
+        };
+
+        try {
+            const response = await fetch('/api/admin/apps', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newApp)
+            });
+
+            if (response.ok) {
+                // Clear form
+                document.getElementById('appName').value = '';
+                document.getElementById('appRating').value = '';
+                document.getElementById('appBio').value = '';
+                document.getElementById('appCategory').value = '';
+                document.getElementById('appDownloadLink').value = '';
+
+                // Reload apps from database and refresh all views
+                await this.loadAppsFromDatabase();
+                this.loadAppsManagement();
+
+                this.showSuccessMessage('App added successfully!');
+            } else {
+                const error = await response.json();
+                alert('Failed to add app: ' + error.error);
+            }
+        } catch (error) {
+            console.error('Error adding app:', error);
+            alert('Failed to add app');
+        }
+    }
+
+    async removeApp(appId) {
+        if (!confirm('Are you sure you want to remove this app?')) return;
+
+        try {
+            const response = await fetch(`/api/admin/apps/${appId}`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                // Reload apps from database and refresh all views
+                await this.loadAppsFromDatabase();
+                this.loadAppsManagement();
+
+                this.showSuccessMessage('App removed successfully!');
+            } else {
+                const error = await response.json();
+                alert('Failed to remove app: ' + error.error);
+            }
+        } catch (error) {
+            console.error('Error removing app:', error);
+            alert('Failed to remove app');
+        }
+    }
+
+    async addBadgeToApp() {
+        const selectedAppId = document.getElementById('badgeAppSelect').value;
+        const selectedBadgeType = document.getElementById('badgeType').value;
+
+        if (!selectedAppId || !selectedBadgeType) {
+            alert('Please select an app and badge type');
+            return;
+        }
+
+        const app = this.apps.find(a => a.id === selectedAppId);
+        if (!app) {
+            alert('App not found');
+            return;
+        }
+
+        if (app.badges && app.badges.includes(selectedBadgeType)) {
+            alert('This badge is already assigned to this app');
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/admin/apps/${selectedAppId}/badges`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ badge_type: selectedBadgeType })
+            });
+
+            if (response.ok) {
+                // Clear form
+                document.getElementById('badgeAppSelect').value = '';
+                document.getElementById('badgeType').value = '';
+
+                // Reload apps from database and refresh all views
+                await this.loadAppsFromDatabase();
+                this.loadAppsManagement();
+
+                this.showSuccessMessage(`Badge "${selectedBadgeType}" added to ${app.name}`);
+            } else {
+                const error = await response.json();
+                alert('Failed to add badge: ' + error.error);
+            }
+        } catch (error) {
+            console.error('Error adding badge:', error);
+            alert('Failed to add badge');
+        }
+    }
+
+    async updateAppRating() {
+        const selectedAppId = document.getElementById('ratingAppSelect').value;
+        const newRating = parseFloat(document.getElementById('newRating').value);
+
+        if (!selectedAppId || !newRating) {
+            alert('Please select an app and enter a rating');
+            return;
+        }
+
+        if (newRating < 1 || newRating > 5) {
+            alert('Rating must be between 1 and 5');
+            return;
+        }
+
+        const app = this.apps.find(a => a.id === selectedAppId);
+        if (!app) {
+            alert('App not found');
+            return;
+        }
+
+        const oldRating = app.rating;
+
+        try {
+            const response = await fetch(`/api/admin/apps/${selectedAppId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ...app,
+                    rating: newRating,
+                    download_url: app.download_url || app.downloadUrl,
+                    is_hot: app.is_hot || app.isHot
+                })
+            });
+
+            if (response.ok) {
+                // Clear form
+                document.getElementById('ratingAppSelect').value = '';
+                document.getElementById('newRating').value = '';
+
+                // Reload apps from database and refresh all views
+                await this.loadAppsFromDatabase();
+                this.loadAppsManagement();
+
+                this.showSuccessMessage(`Rating updated for ${app.name} from ${oldRating} to ${newRating}`);
+            } else {
+                const error = await response.json();
+                alert('Failed to update rating: ' + error.error);
+            }
+        } catch (error) {
+            console.error('Error updating rating:', error);
+            alert('Failed to update rating');
+        }
+    }
+
+    async reloadAppsFromConfig() {
+        try {
+            // First reload apps from config
+            const reloadResponse = await fetch('/api/reload-apps');
+            if (reloadResponse.ok) {
+                console.log('Apps reloaded from config file');
+            }
+            
+            // Then load from database
+            await this.loadAppsFromDatabase();
+        } catch (error) {
+            console.error('Failed to reload apps from config:', error);
+            // Fallback to loading from database
+            await this.loadAppsFromDatabase();
+        }
+    }
+
+    async loadAppsFromDatabase() {
+        try {
+            const response = await fetch('/api/apps');
+            if (response.ok) {
+                const apps = await response.json();
+                // Normalize the app data format
+                this.apps = apps.map(app => ({
+                    ...app,
+                    downloadUrl: app.download_url || app.downloadUrl,
+                    isHot: app.is_hot || app.isHot || false,
+                    badges: app.badges || []
+                }));
+                window.appsData = this.apps;
+
+                console.log('Apps loaded from database:', this.apps.length);
+                
+                // Re-render all app sections after loading
+                this.renderHotApps();
+                this.renderAllApps();
+                this.renderPopularApps();
+                this.renderEditorsChoice();
+                this.renderFeaturedApps();
+                this.renderTrendingApps();
+                this.renderNewApps();
+            } else {
+                console.error('Failed to load apps from database');
+                this.apps = [];
+            }
+        } catch (error) {
+            console.error('Failed to load apps:', error);
+            // Fallback to existing apps data if database fails
+            this.apps = window.appsData || [];
+            if (this.apps.length > 0) {
+                this.renderHotApps();
+                this.renderAllApps();
+                this.renderPopularApps();
+                this.renderEditorsChoice();
+                this.renderFeaturedApps();
+                this.renderTrendingApps();
+                this.renderNewApps();
+            }
+        }
+    }
+
+    renderEditorsChoice() {
+        const editorsChoiceApps = this.apps.filter(app => app.badges && app.badges.includes('editors-choice'));
+        const uniqueEditorsChoiceApps = editorsChoiceApps.filter((app, index, arr) => 
+            arr.findIndex(a => a.id === app.id) === index
+        ).slice(0, 8);
+        this.renderBadgeSection(uniqueEditorsChoiceApps, 'editorsChoiceContainer', 'Editor\'s Choice');
+    }
+
+    renderFeaturedApps() {
+        const featuredApps = this.apps.filter(app => app.badges && app.badges.includes('featured'));
+        const uniqueFeaturedApps = featuredApps.filter((app, index, arr) => 
+            arr.findIndex(a => a.id === app.id) === index
+        ).slice(0, 8);
+        this.renderBadgeSection(uniqueFeaturedApps, 'featuredAppsContainer', 'Featured');
+    }
+
+    renderTrendingApps() {
+        const trendingApps = this.apps.filter(app => app.badges && app.badges.includes('trending'));
+        const uniqueTrendingApps = trendingApps.filter((app, index, arr) => 
+            arr.findIndex(a => a.id === app.id) === index
+        ).slice(0, 8);
+        this.renderBadgeSection(uniqueTrendingApps, 'trendingAppsContainer', 'Trending');
+    }
+
+    renderNewApps() {
+        const newApps = this.apps.filter(app => app.badges && app.badges.includes('new'));
+        const uniqueNewApps = newApps.filter((app, index, arr) => 
+            arr.findIndex(a => a.id === app.id) === index
+        ).slice(0, 8);
+        this.renderBadgeSection(uniqueNewApps, 'newAppsContainer', 'New');
+    }
+
+    renderBadgeSection(apps, containerId, sectionName) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        if (apps.length === 0) {
+            container.innerHTML = `<div class="no-apps">No ${sectionName.toLowerCase()} apps available</div>`;
+            return;
+        }
+
+        container.innerHTML = apps.map(app => this.createHotAppCard(app)).join('');
+
+        // Add event listeners
+        const getButtons = container.querySelectorAll('.get-btn');
+        getButtons.forEach((button, index) => {
+            button.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.handleDownload(apps[index]);
+            });
+        });
+    }
+
+    async saveAppsToDatabase() {
+        try {
+            // Instead of bulk save, reload from database to get latest state
+            await this.loadAppsFromDatabase();
+            console.log('Apps reloaded from database successfully!');
+        } catch (error) {
+            console.error('Error reloading apps:', error);
+            alert('Failed to reload apps from database');
+        }
+    }
+
+    async loadUsersList() {
+        try {
+            const response = await fetch('/api/admin/users');
+            if (response.ok) {
+                const users = await response.json();
+                const usersList = document.getElementById('usersList');
+
+                if (!usersList) return;
+
+                usersList.innerHTML = users.map(user => {
+                    return `
+                        <div class="user-item">
+                            <div class="user-info">
+                                <h5>${user.username}</h5>
+                                <p>${user.email}</p>
+                                <p>Created: ${new Date(user.created_at).toLocaleDateString()}</p>
+                            </div>
+                            <div class="user-actions">
+                                <span class="user-status ${user.is_banned ? 'banned' : 'active'}">
+                                    ${user.is_banned ? 'Banned' : 'Active'}
+                                </span>
+                                <button class="admin-btn ${user.is_banned ? '' : 'danger'}" 
+                                        onclick="window.acueStore.${user.is_banned ? 'unbanUser' : 'banUser'}('${user.username}')">
+                                    ${user.is_banned ? 'Unban' : 'Ban'}
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        } catch (error) {
+            console.error('Failed to load users:', error);
+        }
+    }
+
+    async banUser(username) {
+        try {
+            const response = await fetch(`/api/admin/users/${username}/ban`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ banned: true })
+            });
+
+            if (response.ok) {
+                this.loadUsersList();
+                this.showSuccessMessage(`User ${username} has been banned`);
+            }
+        } catch (error) {
+            console.error('Failed to ban user:', error);
+        }
+    }
+
+    async unbanUser(username) {
+        try {
+            const response = await fetch(`/api/admin/users/${username}/ban`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ banned: false })
+            });
+
+            if (response.ok) {
+                this.loadUsersList();
+                this.showSuccessMessage(`User ${username} has been unbanned`);
+            }
+        } catch (error) {
+            console.error('Failed to unban user:', error);
+        }
     }
 }
 
-// Initialize the app when the DOM is loaded
+// Initialize the app
 document.addEventListener('DOMContentLoaded', () => {
     window.acueStore = new AcueStore();
 });
-
-// Add category active state styles
-const style = document.createElement('style');
-style.textContent = `
-    .category-card.active {
-        background-color: hsl(var(--primary-color));
-        color: white;
-        transform: translateY(-4px);
-        box-shadow: 0 8px 24px hsla(var(--primary-color) / 0.3);
-    }
-    
-    .category-card.active i {
-        color: white;
-    }
-    
-    .category-card.active span {
-        color: white;
-    }
-`;
-document.head.appendChild(style);
