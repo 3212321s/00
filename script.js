@@ -1,3 +1,4 @@
+
 class AcueStore {
     constructor() {
         this.apps = [];
@@ -14,7 +15,7 @@ class AcueStore {
         }
 
         this.loadUserSession();
-        this.loadAppsFromDatabase();
+        this.loadAppsFromStorage();
         this.setupAuthHandlers();
         this.setupAdminAuthHandlers();
         this.checkAdminStatus();
@@ -135,8 +136,25 @@ class AcueStore {
         }
     }
 
+    loadAppsFromStorage() {
+        // Load from localStorage or fall back to config
+        const storedApps = localStorage.getItem('nexoraStoreApps');
+        if (storedApps) {
+            this.apps = JSON.parse(storedApps);
+        } else {
+            // Initialize from config data
+            this.apps = window.appsData || [];
+            this.saveAppsToStorage();
+        }
+        console.log('Apps loaded from localStorage:', this.apps.length);
+    }
+
+    saveAppsToStorage() {
+        localStorage.setItem('nexoraStoreApps', JSON.stringify(this.apps));
+    }
+
     renderHotApps() {
-        const hotApps = this.apps.filter(app => app.is_hot === true).slice(0, 8);
+        const hotApps = this.apps.filter(app => app.is_hot === true || app.isHot === true).slice(0, 8);
         const container = document.getElementById('hotAppsContainer');
 
         console.log('Rendering hot apps:', hotApps.length, 'total apps:', this.apps.length);
@@ -301,16 +319,12 @@ class AcueStore {
             return;
         }
 
-        //Issue 3 fix: reorder the search and filter out AcueGX
         let filteredApps = this.apps.filter(app =>
             app.name.toLowerCase().includes(this.currentSearchTerm) ||
             app.developer.toLowerCase().includes(this.currentSearchTerm) ||
             app.description.toLowerCase().includes(this.currentSearchTerm) ||
             app.category.toLowerCase().includes(this.currentSearchTerm)
         );
-
-        // Remove AcueGX
-        filteredApps = filteredApps.filter(app => app.name !== 'AcueGX');
 
         // Sort by relevance
         filteredApps.sort((a, b) => {
@@ -392,8 +406,9 @@ class AcueStore {
             return;
         }
 
-        console.log(`Downloading ${app.name} from ${app.downloadUrl}`);
-        window.open(app.downloadUrl, '_blank', 'noopener,noreferrer');
+        const downloadUrl = app.downloadUrl || app.download_url;
+        console.log(`Downloading ${app.name} from ${downloadUrl}`);
+        window.open(downloadUrl, '_blank', 'noopener,noreferrer');
     }
 
     isBrowserAvailable() {
@@ -496,7 +511,6 @@ class AcueStore {
                 this.hideBadgeModal();
             });
         }
-
 
         this.setupSettingsControls();
         this.setupAdminControls();
@@ -754,7 +768,7 @@ class AcueStore {
         }
     }
 
-    async handleLogin() {
+    handleLogin() {
         const username = document.getElementById('loginUsername').value;
         const password = document.getElementById('loginPassword').value;
 
@@ -763,31 +777,32 @@ class AcueStore {
             return;
         }
 
-        try {
-            const response = await fetch('/api/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
-            });
+        // Load users from localStorage
+        const users = JSON.parse(localStorage.getItem('nexoraStoreUsers') || '[]');
+        const user = users.find(u => u.username === username && u.password === password);
 
-            const data = await response.json();
-
-            if (response.ok) {
-                this.currentUser = data.user;
-                this.saveUserSession();
-                this.updateProfileUI();
-                this.hideProfileModal();
-                this.showSuccessMessage('Login successful!');
-            } else {
-                alert(data.error || 'Login failed');
-            }
-        } catch (error) {
-            console.error('Login error:', error);
-            alert('Login failed. Please try again.');
+        if (!user) {
+            alert('Invalid username or password');
+            return;
         }
+
+        if (user.is_banned) {
+            alert('Your account has been banned. Please contact support.');
+            return;
+        }
+
+        this.currentUser = {
+            id: user.id,
+            username: user.username,
+            email: user.email
+        };
+        this.saveUserSession();
+        this.updateProfileUI();
+        this.hideProfileModal();
+        this.showSuccessMessage('Login successful!');
     }
 
-    async handleRegister() {
+    handleRegister() {
         const username = document.getElementById('registerUsername').value;
         const password = document.getElementById('registerPassword').value;
         const confirmPassword = document.getElementById('registerConfirmPassword').value;
@@ -807,29 +822,38 @@ class AcueStore {
             return;
         }
 
-        try {
-            const response = await fetch('/api/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password, email: `${username}@acuestore.com` })
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
-                // Auto-login the new user
-                this.currentUser = data.user;
-                this.saveUserSession();
-                this.updateProfileUI();
-                this.hideProfileModal();
-                this.showSuccessMessage('Account created successfully!');
-            } else {
-                alert(data.error || 'Registration failed');
-            }
-        } catch (error) {
-            console.error('Registration error:', error);
-            alert('Registration failed. Please try again.');
+        // Load existing users
+        const users = JSON.parse(localStorage.getItem('nexoraStoreUsers') || '[]');
+        
+        // Check if user exists
+        if (users.find(u => u.username === username)) {
+            alert('Username already exists');
+            return;
         }
+
+        // Create new user
+        const newUser = {
+            id: Date.now().toString(),
+            username,
+            password, // In real app, this should be hashed
+            email: `${username}@nexorastore.com`,
+            created_at: new Date().toISOString(),
+            is_banned: false
+        };
+
+        users.push(newUser);
+        localStorage.setItem('nexoraStoreUsers', JSON.stringify(users));
+
+        // Auto-login
+        this.currentUser = {
+            id: newUser.id,
+            username: newUser.username,
+            email: newUser.email
+        };
+        this.saveUserSession();
+        this.updateProfileUI();
+        this.hideProfileModal();
+        this.showSuccessMessage('Account created successfully!');
     }
 
     handleLogout() {
@@ -1072,12 +1096,12 @@ class AcueStore {
             return;
         }
 
-        const storedUsers = JSON.parse(localStorage.getItem('nexoraStoreUsers') || '[]');
-        const userIndex = storedUsers.findIndex(u => u.username === this.currentUser.username);
+        const users = JSON.parse(localStorage.getItem('nexoraStoreUsers') || '[]');
+        const userIndex = users.findIndex(u => u.username === this.currentUser.username);
 
         if (userIndex !== -1) {
-            storedUsers[userIndex].password = newPassword;
-            localStorage.setItem('nexoraStoreUsers', JSON.stringify(storedUsers));
+            users[userIndex].password = newPassword;
+            localStorage.setItem('nexoraStoreUsers', JSON.stringify(users));
             this.showSuccessMessage('Password reset successfully!');
         }
     }
@@ -1114,7 +1138,6 @@ class AcueStore {
     // Admin Panel
     checkAdminStatus() {
         // Admin status is now set through PIN authentication
-        // Remove IP check and make admin panel available to everyone
         window.adminConfig.isAdmin = false;
     }
 
@@ -1278,8 +1301,7 @@ class AcueStore {
 
         const oldRating = app.rating;
         app.rating = Math.round(newRating * 10) / 10; // Round to 1 decimal place
-        // Issue 2 fix: Saving admin changes to backend API instead of localStorage
-        this.saveAppsToDatabase();
+        this.saveAppsToStorage();
 
         // Refresh views
         this.renderHotApps();
@@ -1337,10 +1359,10 @@ class AcueStore {
                         </div>
                         <div class="app-detail-row">
                             <strong>Download URL:</strong> 
-                            <a href="${app.downloadUrl}" target="_blank" class="download-link">${app.downloadUrl}</a>
+                            <a href="${app.downloadUrl || app.download_url}" target="_blank" class="download-link">${app.downloadUrl || app.download_url}</a>
                         </div>
                         <div class="app-detail-row">
-                            <strong>Hot App:</strong> ${app.isHot ? 'Yes' : 'No'}
+                            <strong>Hot App:</strong> ${app.isHot || app.is_hot ? 'Yes' : 'No'}
                         </div>
                         <div class="app-detail-row">
                             <strong>Last Checked:</strong> ${new Date().toLocaleString()}
@@ -1423,11 +1445,11 @@ class AcueStore {
                         </div>
                         <div class="form-group">
                             <label>Download URL</label>
-                            <input type="url" id="editAppUrl" value="${app.downloadUrl}">
+                            <input type="url" id="editAppUrl" value="${app.downloadUrl || app.download_url}">
                         </div>
                         <div class="form-group">
                             <label>
-                                <input type="checkbox" id="editAppHot" ${app.isHot ? 'checked' : ''}>
+                                <input type="checkbox" id="editAppHot" ${(app.isHot || app.is_hot) ? 'checked' : ''}>
                                 Hot App
                             </label>
                         </div>
@@ -1453,43 +1475,29 @@ class AcueStore {
         return modal;
     }
 
-    async saveAppChanges(appId) {
+    saveAppChanges(appId) {
         const app = this.apps.find(a => a.id === appId);
         if (!app) return;
 
-        const updatedApp = {
-            name: document.getElementById('editAppName').value,
-            developer: document.getElementById('editAppDeveloper').value,
-            rating: parseFloat(document.getElementById('editAppRating').value),
-            description: document.getElementById('editAppDescription').value,
-            category: document.getElementById('editAppCategory').value,
-            download_url: document.getElementById('editAppUrl').value,
-            is_hot: document.getElementById('editAppHot').checked,
-            icon: app.icon
-        };
+        // Update app properties
+        app.name = document.getElementById('editAppName').value;
+        app.developer = document.getElementById('editAppDeveloper').value;
+        app.rating = parseFloat(document.getElementById('editAppRating').value);
+        app.description = document.getElementById('editAppDescription').value;
+        app.category = document.getElementById('editAppCategory').value;
+        app.downloadUrl = document.getElementById('editAppUrl').value;
+        app.download_url = document.getElementById('editAppUrl').value;
+        app.isHot = document.getElementById('editAppHot').checked;
+        app.is_hot = document.getElementById('editAppHot').checked;
 
-        try {
-            const response = await fetch(`/api/admin/apps/${appId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updatedApp)
-            });
+        this.saveAppsToStorage();
+        this.loadAppsManagement();
+        this.renderHotApps();
+        this.renderAllApps();
+        this.renderPopularApps();
 
-            if (response.ok) {
-                // Reload apps from database and refresh all views
-                await this.loadAppsFromDatabase();
-                this.loadAppsManagement();
-
-                document.querySelector('.edit-app-modal').remove();
-                this.showSuccessMessage('App updated successfully!');
-            } else {
-                const error = await response.json();
-                alert('Failed to update app: ' + error.error);
-            }
-        } catch (error) {
-            console.error('Error updating app:', error);
-            alert('Failed to update app');
-        }
+        document.querySelector('.edit-app-modal').remove();
+        this.showSuccessMessage('App updated successfully!');
     }
 
     manageBadges(appId) {
@@ -1585,48 +1593,30 @@ class AcueStore {
         }).join('');
     }
 
-    async saveBadgeChanges(appId) {
+    saveBadgeChanges(appId) {
         const modal = document.querySelector('.badge-management-modal');
         const selectedBadges = Array.from(modal.querySelectorAll('.badge-option.selected'))
             .map(option => option.dataset.badge);
 
-        try {
-            // Remove all existing badges for this app
-            const app = this.apps.find(a => a.id === appId);
-            if (app && app.badges) {
-                for (const badge of app.badges) {
-                    await fetch(`/api/admin/apps/${appId}/badges/${badge}`, {
-                        method: 'DELETE'
-                    });
-                }
-            }
-
-            // Add new badges
-            for (const badge of selectedBadges) {
-                const response = await fetch(`/api/admin/apps/${appId}/badges`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ badge_type: badge })
-                });
-
-                if (!response.ok) {
-                    console.error('Failed to add badge:', badge);
-                }
-            }
-
-            // Reload apps and refresh views
-            await this.loadAppsFromDatabase();
+        const app = this.apps.find(a => a.id === appId);
+        if (app) {
+            app.badges = selectedBadges;
+            this.saveAppsToStorage();
             this.loadAppsManagement();
-
-            modal.remove();
-            this.showSuccessMessage('Badges updated successfully!');
-        } catch (error) {
-            console.error('Error updating badges:', error);
-            alert('Failed to update badges');
+            this.renderHotApps();
+            this.renderAllApps();
+            this.renderPopularApps();
+            this.renderEditorsChoice();
+            this.renderFeaturedApps();
+            this.renderTrendingApps();
+            this.renderNewApps();
         }
+
+        modal.remove();
+        this.showSuccessMessage('Badges updated successfully!');
     }
 
-    async addNewApp() {
+    addNewApp() {
         const appName = document.getElementById('appName').value;
         const appRating = parseFloat(document.getElementById('appRating').value);
         const appBio = document.getElementById('appBio').value;
@@ -1651,65 +1641,51 @@ class AcueStore {
             rating: appRating,
             description: appBio,
             icon: 'fas fa-mobile-alt',
+            downloadUrl: appDownloadLink,
             download_url: appDownloadLink,
-            is_hot: false
+            isHot: false,
+            is_hot: false,
+            badges: []
         };
 
-        try {
-            const response = await fetch('/api/admin/apps', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(newApp)
-            });
+        this.apps.push(newApp);
+        this.saveAppsToStorage();
 
-            if (response.ok) {
-                // Clear form
-                document.getElementById('appName').value = '';
-                document.getElementById('appRating').value = '';
-                document.getElementById('appBio').value = '';
-                document.getElementById('appCategory').value = '';
-                document.getElementById('appDownloadLink').value = '';
+        // Clear form
+        document.getElementById('appName').value = '';
+        document.getElementById('appRating').value = '';
+        document.getElementById('appBio').value = '';
+        document.getElementById('appCategory').value = '';
+        document.getElementById('appDownloadLink').value = '';
 
-                // Reload apps from database and refresh all views
-                await this.loadAppsFromDatabase();
-                this.loadAppsManagement();
+        this.loadAppsManagement();
+        this.renderHotApps();
+        this.renderAllApps();
+        this.renderPopularApps();
 
-                this.showSuccessMessage('App added successfully!');
-            } else {
-                const error = await response.json();
-                alert('Failed to add app: ' + error.error);
-            }
-        } catch (error) {
-            console.error('Error adding app:', error);
-            alert('Failed to add app');
-        }
+        this.showSuccessMessage('App added successfully!');
     }
 
-    async removeApp(appId) {
+    removeApp(appId) {
         if (!confirm('Are you sure you want to remove this app?')) return;
 
-        try {
-            const response = await fetch(`/api/admin/apps/${appId}`, {
-                method: 'DELETE'
-            });
-
-            if (response.ok) {
-                // Reload apps from database and refresh all views
-                await this.loadAppsFromDatabase();
-                this.loadAppsManagement();
-
-                this.showSuccessMessage('App removed successfully!');
-            } else {
-                const error = await response.json();
-                alert('Failed to remove app: ' + error.error);
-            }
-        } catch (error) {
-            console.error('Error removing app:', error);
-            alert('Failed to remove app');
+        const appIndex = this.apps.findIndex(a => a.id === appId);
+        if (appIndex !== -1) {
+            this.apps.splice(appIndex, 1);
+            this.saveAppsToStorage();
+            this.loadAppsManagement();
+            this.renderHotApps();
+            this.renderAllApps();
+            this.renderPopularApps();
+            this.renderEditorsChoice();
+            this.renderFeaturedApps();
+            this.renderTrendingApps();
+            this.renderNewApps();
+            this.showSuccessMessage('App removed successfully!');
         }
     }
 
-    async addBadgeToApp() {
+    addBadgeToApp() {
         const selectedAppId = document.getElementById('badgeAppSelect').value;
         const selectedBadgeType = document.getElementById('badgeType').value;
 
@@ -1724,39 +1700,35 @@ class AcueStore {
             return;
         }
 
-        if (app.badges && app.badges.includes(selectedBadgeType)) {
+        if (!app.badges) {
+            app.badges = [];
+        }
+
+        if (app.badges.includes(selectedBadgeType)) {
             alert('This badge is already assigned to this app');
             return;
         }
 
-        try {
-            const response = await fetch(`/api/admin/apps/${selectedAppId}/badges`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ badge_type: selectedBadgeType })
-            });
+        app.badges.push(selectedBadgeType);
+        this.saveAppsToStorage();
 
-            if (response.ok) {
-                // Clear form
-                document.getElementById('badgeAppSelect').value = '';
-                document.getElementById('badgeType').value = '';
+        // Clear form
+        document.getElementById('badgeAppSelect').value = '';
+        document.getElementById('badgeType').value = '';
 
-                // Reload apps from database and refresh all views
-                await this.loadAppsFromDatabase();
-                this.loadAppsManagement();
+        this.loadAppsManagement();
+        this.renderHotApps();
+        this.renderAllApps();
+        this.renderPopularApps();
+        this.renderEditorsChoice();
+        this.renderFeaturedApps();
+        this.renderTrendingApps();
+        this.renderNewApps();
 
-                this.showSuccessMessage(`Badge "${selectedBadgeType}" added to ${app.name}`);
-            } else {
-                const error = await response.json();
-                alert('Failed to add badge: ' + error.error);
-            }
-        } catch (error) {
-            console.error('Error adding badge:', error);
-            alert('Failed to add badge');
-        }
+        this.showSuccessMessage(`Badge "${selectedBadgeType}" added to ${app.name}`);
     }
 
-    async updateAppRating() {
+    updateAppRating() {
         const selectedAppId = document.getElementById('ratingAppSelect').value;
         const newRating = parseFloat(document.getElementById('newRating').value);
 
@@ -1777,98 +1749,19 @@ class AcueStore {
         }
 
         const oldRating = app.rating;
+        app.rating = newRating;
+        this.saveAppsToStorage();
 
-        try {
-            const response = await fetch(`/api/admin/apps/${selectedAppId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    ...app,
-                    rating: newRating,
-                    download_url: app.download_url || app.downloadUrl,
-                    is_hot: app.is_hot || app.isHot
-                })
-            });
+        // Clear form
+        document.getElementById('ratingAppSelect').value = '';
+        document.getElementById('newRating').value = '';
 
-            if (response.ok) {
-                // Clear form
-                document.getElementById('ratingAppSelect').value = '';
-                document.getElementById('newRating').value = '';
+        this.loadAppsManagement();
+        this.renderHotApps();
+        this.renderAllApps();
+        this.renderPopularApps();
 
-                // Reload apps from database and refresh all views
-                await this.loadAppsFromDatabase();
-                this.loadAppsManagement();
-
-                this.showSuccessMessage(`Rating updated for ${app.name} from ${oldRating} to ${newRating}`);
-            } else {
-                const error = await response.json();
-                alert('Failed to update rating: ' + error.error);
-            }
-        } catch (error) {
-            console.error('Error updating rating:', error);
-            alert('Failed to update rating');
-        }
-    }
-
-    async reloadAppsFromConfig() {
-        try {
-            // First reload apps from config
-            const reloadResponse = await fetch('/api/reload-apps');
-            if (reloadResponse.ok) {
-                console.log('Apps reloaded from config file');
-            }
-            
-            // Then load from database
-            await this.loadAppsFromDatabase();
-        } catch (error) {
-            console.error('Failed to reload apps from config:', error);
-            // Fallback to loading from database
-            await this.loadAppsFromDatabase();
-        }
-    }
-
-    async loadAppsFromDatabase() {
-        try {
-            const response = await fetch('/api/apps');
-            if (response.ok) {
-                const apps = await response.json();
-                // Normalize the app data format
-                this.apps = apps.map(app => ({
-                    ...app,
-                    downloadUrl: app.download_url || app.downloadUrl,
-                    isHot: app.is_hot || app.isHot || false,
-                    badges: app.badges || []
-                }));
-                window.appsData = this.apps;
-
-                console.log('Apps loaded from database:', this.apps.length);
-                
-                // Re-render all app sections after loading
-                this.renderHotApps();
-                this.renderAllApps();
-                this.renderPopularApps();
-                this.renderEditorsChoice();
-                this.renderFeaturedApps();
-                this.renderTrendingApps();
-                this.renderNewApps();
-            } else {
-                console.error('Failed to load apps from database');
-                this.apps = [];
-            }
-        } catch (error) {
-            console.error('Failed to load apps:', error);
-            // Fallback to existing apps data if database fails
-            this.apps = window.appsData || [];
-            if (this.apps.length > 0) {
-                this.renderHotApps();
-                this.renderAllApps();
-                this.renderPopularApps();
-                this.renderEditorsChoice();
-                this.renderFeaturedApps();
-                this.renderTrendingApps();
-                this.renderNewApps();
-            }
-        }
+        this.showSuccessMessage(`Rating updated for ${app.name} from ${oldRating} to ${newRating}`);
     }
 
     renderEditorsChoice() {
@@ -1924,83 +1817,55 @@ class AcueStore {
         });
     }
 
-    async saveAppsToDatabase() {
-        try {
-            // Instead of bulk save, reload from database to get latest state
-            await this.loadAppsFromDatabase();
-            console.log('Apps reloaded from database successfully!');
-        } catch (error) {
-            console.error('Error reloading apps:', error);
-            alert('Failed to reload apps from database');
+    loadUsersList() {
+        const users = JSON.parse(localStorage.getItem('nexoraStoreUsers') || '[]');
+        const usersList = document.getElementById('usersList');
+
+        if (!usersList) return;
+
+        usersList.innerHTML = users.map(user => {
+            return `
+                <div class="user-item">
+                    <div class="user-info">
+                        <h5>${user.username}</h5>
+                        <p>${user.email}</p>
+                        <p>Created: ${new Date(user.created_at).toLocaleDateString()}</p>
+                    </div>
+                    <div class="user-actions">
+                        <span class="user-status ${user.is_banned ? 'banned' : 'active'}">
+                            ${user.is_banned ? 'Banned' : 'Active'}
+                        </span>
+                        <button class="admin-btn ${user.is_banned ? '' : 'danger'}" 
+                                onclick="window.acueStore.${user.is_banned ? 'unbanUser' : 'banUser'}('${user.username}')">
+                            ${user.is_banned ? 'Unban' : 'Ban'}
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    banUser(username) {
+        const users = JSON.parse(localStorage.getItem('nexoraStoreUsers') || '[]');
+        const userIndex = users.findIndex(u => u.username === username);
+
+        if (userIndex !== -1) {
+            users[userIndex].is_banned = true;
+            localStorage.setItem('nexoraStoreUsers', JSON.stringify(users));
+            this.loadUsersList();
+            this.showSuccessMessage(`User ${username} has been banned`);
         }
     }
 
-    async loadUsersList() {
-        try {
-            const response = await fetch('/api/admin/users');
-            if (response.ok) {
-                const users = await response.json();
-                const usersList = document.getElementById('usersList');
+    unbanUser(username) {
+        const users = JSON.parse(localStorage.getItem('nexoraStoreUsers') || '[]');
+        const userIndex = users.findIndex(u => u.username === username);
 
-                if (!usersList) return;
-
-                usersList.innerHTML = users.map(user => {
-                    return `
-                        <div class="user-item">
-                            <div class="user-info">
-                                <h5>${user.username}</h5>
-                                <p>${user.email}</p>
-                                <p>Created: ${new Date(user.created_at).toLocaleDateString()}</p>
-                            </div>
-                            <div class="user-actions">
-                                <span class="user-status ${user.is_banned ? 'banned' : 'active'}">
-                                    ${user.is_banned ? 'Banned' : 'Active'}
-                                </span>
-                                <button class="admin-btn ${user.is_banned ? '' : 'danger'}" 
-                                        onclick="window.acueStore.${user.is_banned ? 'unbanUser' : 'banUser'}('${user.username}')">
-                                    ${user.is_banned ? 'Unban' : 'Ban'}
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-            }
-        } catch (error) {
-            console.error('Failed to load users:', error);
-        }
-    }
-
-    async banUser(username) {
-        try {
-            const response = await fetch(`/api/admin/users/${username}/ban`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ banned: true })
-            });
-
-            if (response.ok) {
-                this.loadUsersList();
-                this.showSuccessMessage(`User ${username} has been banned`);
-            }
-        } catch (error) {
-            console.error('Failed to ban user:', error);
-        }
-    }
-
-    async unbanUser(username) {
-        try {
-            const response = await fetch(`/api/admin/users/${username}/ban`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ banned: false })
-            });
-
-            if (response.ok) {
-                this.loadUsersList();
-                this.showSuccessMessage(`User ${username} has been unbanned`);
-            }
-        } catch (error) {
-            console.error('Failed to unban user:', error);
+        if (userIndex !== -1) {
+            users[userIndex].is_banned = false;
+            localStorage.setItem('nexoraStoreUsers', JSON.stringify(users));
+            this.loadUsersList();
+            this.showSuccessMessage(`User ${username} has been unbanned`);
         }
     }
 }
